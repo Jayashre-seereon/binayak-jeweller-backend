@@ -20,6 +20,7 @@ model User {
 model Store {
   id            Int     @id @default(autoincrement())
   storeName     String
+  location      String?
   email         String  @unique
   password      String
   role          String  @default("STORE")

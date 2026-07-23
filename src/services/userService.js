@@ -13,7 +13,7 @@ export const signupUser = async (data) => {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
-    data: { name, email, password: hashedPassword },
+    data: { name, email, password: hashedPassword,  role: "ADMIN" },
   });
 
   return user;
@@ -23,22 +23,60 @@ export const signupUser = async (data) => {
 export const loginUser = async (data) => {
   const { email, password } = data;
 
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) throw new Error("User not found");
+  let account = null;
 
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) throw new Error("Invalid credentials");
+  // 1️⃣ check USER table
+  let user = await prisma.user.findUnique({ where: { email } });
 
-  const accessToken = generateAccessToken(user);
- const refreshToken = generateRefreshToken(user);
+  if (user) {
+    account = user;
+  } else {
+    // 2️⃣ check STORE table
+    let store = await prisma.store.findUnique({ where: { email } });
 
-await prisma.user.update({
-  where: { id: user.id },
-  data: {
+    if (store) {
+      account = store;
+    }
+  }
+
+  // ❌ not found anywhere
+  if (!account) {
+    throw new Error("Account not found");
+  }
+
+  // 3️⃣ password check
+  const isMatch = await bcrypt.compare(password, account.password);
+
+  if (!isMatch) {
+    throw new Error("Invalid credentials");
+  }
+
+  // 4️⃣ tokens
+  const accessToken = generateAccessToken(account);
+  const refreshToken = generateRefreshToken(account);
+
+  // 5️⃣ save refresh token (IMPORTANT ⚠️)
+  if (account.role === "STORE") {
+    await prisma.store.update({
+      where: { id: account.id },
+      data: { refreshToken },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: account.id },
+      data: { refreshToken },
+    });
+  }
+
+  return {
+    user: {
+      id: account.id,
+      email: account.email,
+      role: account.role,
+    },
+    accessToken,
     refreshToken,
-  },
-});
-  return { user, accessToken, refreshToken };
+  };
 };
 
 // ================= REFRESH TOKEN =================

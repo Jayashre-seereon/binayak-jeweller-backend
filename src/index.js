@@ -3,7 +3,7 @@ import userRoutes from "./routes/userRoutes.js";
 import storeRoutes from "./routes/storeRoutes.js";
 const app = express();
 
-app.use(express.json());
+ app.use(express.json());
 
 app.use("/api/users", userRoutes);
 app.use("/api/stores", storeRoutes);

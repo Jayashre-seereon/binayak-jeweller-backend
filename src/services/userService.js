@@ -108,3 +108,38 @@ export const logoutUser = async (user) => {
 
   return { message: "Logout successful" };
 };
+
+//refresh token
+export const refreshAccessToken = async (refreshToken) => {
+  if (!refreshToken) {
+    throw new Error("Refresh token required");
+  }
+
+  let decoded;
+
+  try {
+    decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+  } catch (err) {
+    throw new Error("Invalid or expired refresh token");
+  }
+
+  let account;
+
+  // check user or store
+  if (decoded.role === "STORE") {
+    account = await findStoreByEmail(decoded.email);
+  } else {
+    account = await findUserByEmail(decoded.email);
+  }
+
+  if (!account || account.refreshToken !== refreshToken) {
+    throw new Error("Unauthorized");
+  }
+
+  // generate new access token
+  const newAccessToken = generateAccessToken(account);
+
+  return {
+    accessToken: newAccessToken,
+  };
+};

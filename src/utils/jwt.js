@@ -16,6 +16,7 @@ export const generateRefreshToken = (user) => {
   return jwt.sign(
     { 
       id: user.id,
+      email: user.email,   // ✅ ADD THIS
       role: user.role   
     },
     process.env.REFRESH_SECRET,

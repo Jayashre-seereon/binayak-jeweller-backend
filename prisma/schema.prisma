@@ -25,7 +25,18 @@ model Store {
   password      String
   role          String  @default("STORE")
   refreshToken  String?
+  brands        Brand[]
 }
 
+model Brand {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  
+  storeId     Int
+  store       Store   @relation(fields: [storeId], references: [id])
+
+  createdAt   DateTime @default(now())
+}
 
 

@@ -47,9 +47,7 @@ export const reset = async (req, res) => {
 export const logout = async (req, res) => {
   try {
 
-    const userId = req.user.id;
-
-    const result = await logoutUser(userId);
+  const result = await logoutUser(req.user);
 
     res.json(result);
 

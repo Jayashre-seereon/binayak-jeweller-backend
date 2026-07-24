@@ -99,8 +99,12 @@ export const resetPassword = async (token, newPassword) => {
 };
 
 // ================= LOGOUT =================
-export const logoutUser = async (userId) => {
-  await updateUser(userId, { refreshToken: null });
+export const logoutUser = async (user) => {
+  if (user.role === "STORE") {
+    await updateStore(user.id, { refreshToken: null });
+  } else {
+    await updateUser(user.id, { refreshToken: null });
+  }
 
   return { message: "Logout successful" };
 };

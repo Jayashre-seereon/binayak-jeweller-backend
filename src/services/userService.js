@@ -55,7 +55,7 @@ export const loginUser = async (data) => {
   const refreshToken = generateRefreshToken(account);
 
   if (account.role === "STORE") {
-   await updateStoreRepo(account.id, { refreshToken });
+    await updateStoreRepo(account.id, { refreshToken });
   } else {
     await updateUser(account.id, { refreshToken });
   }

@@ -7,7 +7,6 @@ const safeStoreFields = {
   location: true,
   email: true,
   role: true,
-  password: true,
 };
 
 export const findStoreByEmail = (email) => {

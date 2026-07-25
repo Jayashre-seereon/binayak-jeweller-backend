@@ -61,7 +61,7 @@ export const logout = async (req, res) => {
   }
 };
 
-export const refreshToken = async (req, res) => {
+const handleRefreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
@@ -78,3 +78,7 @@ export const refreshToken = async (req, res) => {
     });
   }
 };
+
+export const refreshToken = handleRefreshToken;
+
+export const refreshStoreToken = handleRefreshToken;

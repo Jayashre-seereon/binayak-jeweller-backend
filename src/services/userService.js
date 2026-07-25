@@ -14,7 +14,8 @@ import {
 
 import { generateAccessToken, generateRefreshToken } from "../utils/jwt.js";
 
-const RESET_SECRET = process.env.RESET_TOKEN_SECRET || process.env.JWT_SECRET;
+const RESET_SECRET =
+  process.env.RESET_PASSWORD_SECRET || process.env.RESET_TOKEN_SECRET || process.env.JWT_SECRET;
 
 // ================= SIGNUP =================
 export const signupUser = async (data) => {

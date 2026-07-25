@@ -9,7 +9,7 @@ import {
 
 import {
   findStoreByEmail,
-  updateStore,
+  updateStoreRepo,
 } from "../repositories/storeRepository.js";
 
 import { generateAccessToken, generateRefreshToken } from "../utils/jwt.js";
@@ -54,7 +54,7 @@ export const loginUser = async (data) => {
   const refreshToken = generateRefreshToken(account);
 
   if (account.role === "STORE") {
-    await updateStore(account.id, { refreshToken });
+   await updateStoreRepo(account.id, { refreshToken });
   } else {
     await updateUser(account.id, { refreshToken });
   }
@@ -101,7 +101,7 @@ export const resetPassword = async (token, newPassword) => {
 // ================= LOGOUT =================
 export const logoutUser = async (user) => {
   if (user.role === "STORE") {
-    await updateStore(user.id, { refreshToken: null });
+    await updateStoreRepo(user.id, { refreshToken: null });
   } else {
     await updateUser(user.id, { refreshToken: null });
   }

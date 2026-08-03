@@ -31,6 +31,7 @@ model Store {
   updatedAt DateTime @updatedAt
   brands        Brand[]
   categories    Category[] 
+  metals        Metal[]
 }
 
 model Brand {
@@ -57,3 +58,15 @@ model Category {
   updatedAt DateTime @updatedAt
 }
 
+
+model Metal {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+
+  storeId     Int
+  store       Store   @relation(fields: [storeId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

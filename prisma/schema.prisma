@@ -33,6 +33,7 @@ model Store {
   categories    Category[] 
   metals        Metal[]
   purities    Purity[] 
+  grades        Grade[]
 }
 
 model Brand {
@@ -79,6 +80,26 @@ model Purity {
 
   metalId     Int
   metal       Metal   @relation(fields: [metalId], references: [id])
+
+  storeId     Int
+  
+  store       Store   @relation(fields: [storeId], references: [id])
+  
+  grades      Grade[] 
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+}
+
+model Grade {
+  id          Int      @id @default(autoincrement())
+  name        String
+  percentage  Float
+  description String?
+
+  purityId    Int
+  purity      Purity  @relation(fields: [purityId], references: [id])
 
   storeId     Int
   store       Store   @relation(fields: [storeId], references: [id])

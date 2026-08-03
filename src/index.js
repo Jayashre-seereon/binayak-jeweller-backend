@@ -7,6 +7,7 @@ import brandRoutes from "./routes/brandRoutes.js";
 import categoryRoutes from "./routes/CategoryRoutes.js";
 import metalRoutes from "./routes/metalRoutes.js";
 import purityRoutes from "./routes/purityRoutes.js";
+import gradeRoutes from "./routes/gradeRoutes.js";
 const app = express();
 app.use(
   cors({
@@ -22,6 +23,8 @@ app.use("/api/brands", brandRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/metals", metalRoutes);
 app.use("/api/purities", purityRoutes);
+app.use("/api/grades", gradeRoutes);
+
 
 app.get("/", (req, res) => {
   res.send("API is running");

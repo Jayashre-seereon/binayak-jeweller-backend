@@ -12,6 +12,7 @@ import designRoutes from "./routes/designRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import itemRoutes from "./routes/itemRoutes.js";
 import stoneRoutes from "./routes/stoneRoutes.js";
+import employeeRoutes from "./routes/employeeRoutes.js";
 const app = express();
 app.use(
   cors({
@@ -32,6 +33,7 @@ app.use("/api/designs", designRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/stones", stoneRoutes);
+app.use("/api/employees", employeeRoutes);
 app.get("/", (req, res) => {
   res.send("API is running");
 });

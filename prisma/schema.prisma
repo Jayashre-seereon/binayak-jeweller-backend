@@ -38,6 +38,7 @@ model Store {
   products      Product[]
   items   Item[]
   stones  Stone[]
+  employees Employee[]
 }
 
 model Brand {
@@ -182,6 +183,21 @@ model Stone {
 
   storeId     Int
   store       Store    @relation(fields: [storeId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Employee {
+  id          Int      @id @default(autoincrement())
+  empCode     String   @unique
+  name        String
+  mobile      String
+  email       String   @unique
+  salary      Float
+
+  storeId     Int
+  store        Store    @relation(fields: [storeId], references: [id])
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -8,6 +8,7 @@ import categoryRoutes from "./routes/CategoryRoutes.js";
 import metalRoutes from "./routes/metalRoutes.js";
 import purityRoutes from "./routes/purityRoutes.js";
 import gradeRoutes from "./routes/gradeRoutes.js";
+import designRoutes from "./routes/designRoutes.js";
 const app = express();
 app.use(
   cors({
@@ -24,6 +25,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/metals", metalRoutes);
 app.use("/api/purities", purityRoutes);
 app.use("/api/grades", gradeRoutes);
+app.use("/api/designs", designRoutes);
 
 
 app.get("/", (req, res) => {

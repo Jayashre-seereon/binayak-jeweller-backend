@@ -11,9 +11,9 @@ import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/create", upload.single("image"), createProduct);
-router.get("/get/", getProducts);
-router.get("/getById/:id", getProductById);
-router.put("/update/:id", upload.single("image"), updateProduct);
-router.delete("/delete/:id", deleteProduct);
+router.post("/create", authMiddleware, upload.single("image"), createProduct);
+router.get("/get/", authMiddleware, getProducts);
+router.get("/getById/:id", authMiddleware, getProductById);
+router.put("/update/:id", authMiddleware, upload.single("image"), updateProduct);
+router.delete("/delete/:id", authMiddleware, deleteProduct);
 export default router;

@@ -36,6 +36,8 @@ model Store {
   grades        Grade[]
   designs       Design[]
   products      Product[]
+  items   Item[]
+  stones  Stone[]
 }
 
 model Brand {
@@ -118,7 +120,7 @@ model Design {
   image       String? 
   storeId     Int
   store       Store   @relation(fields: [storeId], references: [id])
-
+  items   Item[]
   createdAt   DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -135,6 +137,48 @@ model Product {
 
   metalId     Int
   metal       Metal    @relation(fields: [metalId], references: [id])
+
+  storeId     Int
+  store       Store    @relation(fields: [storeId], references: [id])
+
+  items   Item[]
+  stones  Stone[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Item {
+  id          Int      @id @default(autoincrement())
+  itemCode    String   @unique
+  name        String
+  image       String?
+  description String?
+
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id])
+
+  designId    Int
+  design      Design   @relation(fields: [designId], references: [id])
+
+  storeId     Int
+  store       Store    @relation(fields: [storeId], references: [id])
+
+  stones      Stone[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Stone {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id])
+
+  itemId      Int
+  item        Item     @relation(fields: [itemId], references: [id])
 
   storeId     Int
   store       Store    @relation(fields: [storeId], references: [id])

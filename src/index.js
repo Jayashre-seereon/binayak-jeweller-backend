@@ -10,6 +10,8 @@ import purityRoutes from "./routes/purityRoutes.js";
 import gradeRoutes from "./routes/gradeRoutes.js";
 import designRoutes from "./routes/designRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
+import itemRoutes from "./routes/itemRoutes.js";
+import stoneRoutes from "./routes/stoneRoutes.js";
 const app = express();
 app.use(
   cors({
@@ -28,7 +30,8 @@ app.use("/api/purities", purityRoutes);
 app.use("/api/grades", gradeRoutes);
 app.use("/api/designs", designRoutes);
 app.use("/api/products", productRoutes);
-
+app.use("/api/items", itemRoutes);
+app.use("/api/stones", stoneRoutes);
 app.get("/", (req, res) => {
   res.send("API is running");
 });

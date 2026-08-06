@@ -23,16 +23,48 @@ export const getPartyOpeningBalancesService = async (storeId) => {
   return await repo.getPartyOpeningBalancesRepo(storeId);
 };
 // GET BY ID
-export const getPartyOpeningBalanceByIdService = async (id) => {
-  return await repo.getPartyOpeningBalanceByIdRepo(id);
+export const getPartyOpeningBalanceByIdService = async (id, storeId) => {
+  const partyOpeningBalance = await repo.getPartyOpeningBalanceByIdRepo(id);
+
+  if (!partyOpeningBalance) {
+    throw new Error("Party opening balance not found");
+  }
+
+  if (partyOpeningBalance.storeId !== storeId) {
+    throw new Error("Unauthorized");
+  }
+
+  return partyOpeningBalance;
 };
 
 // UPDATE
-export const updatePartyOpeningBalanceService = async (id, data) => {
+export const updatePartyOpeningBalanceService = async (id, data, storeId) => {
+  const partyOpeningBalance = await repo.getPartyOpeningBalanceByIdRepo(id);
+
+  if (!partyOpeningBalance) {
+    throw new Error("Party opening balance not found");
+  }
+  if (partyOpeningBalance.storeId !== storeId) {
+    throw new Error("Unauthorized");
+  }
   return await repo.updatePartyOpeningBalanceRepo(id, data);
 };
 
 // DELETE
-export const deletePartyOpeningBalanceService = async (id) => {
-  return await repo.deletePartyOpeningBalanceRepo(id);
+export const deletePartyOpeningBalanceService = async (id, storeId) => {
+  const partyOpeningBalance = await repo.getPartyOpeningBalanceByIdRepo(id);
+
+  if (!partyOpeningBalance) {
+    throw new Error("Party opening balance not found");
+  }
+
+  if (partyOpeningBalance.storeId !== storeId) {
+    throw new Error("Unauthorized");
+  }
+
+  try {
+    return await repo.deletePartyOpeningBalanceRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "party opening balance"));
+  }
 };

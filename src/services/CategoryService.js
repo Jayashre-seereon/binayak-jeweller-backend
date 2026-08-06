@@ -58,6 +58,10 @@ export const deleteCategory = async (id, storeId) => {
   if (category.storeId !== storeId) {
     throw new Error("Unauthorized");
   }
-
-  return await deleteCategoryRepo(id);
+try {
+    return await deleteCategoryRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "category"));
+  }
+  
 };

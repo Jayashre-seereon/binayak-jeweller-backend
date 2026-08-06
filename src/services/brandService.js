@@ -74,21 +74,18 @@ export const updateBrand = async (id, data, storeId) => {
 
 // DELETE
 export const deleteBrand = async (id, storeId) => {
-
-
   const brand = await getBrandByIdRepo(id);
-
-
   if (!brand) {
     throw new Error("Brand not found");
   }
-
-
   if (brand.storeId !== storeId) {
     throw new Error("Unauthorized");
   }
-
-
-  return await deleteBrandRepo(id);
+  try {
+    return await deleteBrandRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "brand"));
+  }
+ 
 
 };

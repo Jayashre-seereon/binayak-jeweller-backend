@@ -38,7 +38,7 @@ export const getPartyTypeById = async (id, storeId) => {
 
 
   if (partytype.storeId !== storeId) {
-    throw new Error("Party type does not belong to this store");
+    throw new Error("Unauthorized");
   }
 
 
@@ -89,6 +89,10 @@ export const deletePartyType = async (id, storeId) => {
   }
 
 
-  return await deletePartyTypeRepo(id);
+  try {
+    return await deletePartyTypeRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "party type"));
+  }
 
 };

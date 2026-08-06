@@ -98,5 +98,9 @@ export const deleteProduct = async (id, storeId) => {
     throw new Error("Unauthorized");
   }
 
-  return await deleteProductRepo(id);
+  try {
+    return await deleteProductRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "product"));
+  }
 };

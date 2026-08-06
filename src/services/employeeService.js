@@ -104,6 +104,9 @@ export const deleteEmployee = async (id, storeId) => {
   if (employee.storeId !== Number(storeId)) {
     throw new Error("Unauthorized");
   }
-
-  return await deleteEmployeeRepo(Number(id));
+try {
+    return await deleteEmployeeRepo(Number(id));
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "employee"));
+  }
 };

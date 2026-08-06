@@ -1,5 +1,5 @@
 import { createMetalRepo, getMetalsByStore, getMetalByIdRepo, updateMetalRepo, deleteMetalRepo } from "../repositories/metalRepository.js";
-
+import { handleDeleteError } from "../utils/errorHandler.js";
 // CREATE
 export const createMetal = async (data, storeId) => {
   return await createMetalRepo({
@@ -53,5 +53,9 @@ export const deleteMetal = async (id, storeId) => {
     throw new Error("Unauthorized");
   }
 
-  return await deleteMetalRepo(id);
+   try {
+    return await deleteMetalRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "metal"));
+  }
 };

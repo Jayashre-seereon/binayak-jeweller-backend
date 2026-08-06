@@ -108,5 +108,9 @@ export const deleteStone = async (id, storeId) => {
   if (stone.storeId !== Number(storeId))
     throw new Error("Unauthorized");
 
-  return await deleteStoneRepo(Number(id));
+  try {
+    return await deleteStoneRepo(Number(id));
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "stone"));
+  }
 };

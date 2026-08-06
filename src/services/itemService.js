@@ -142,6 +142,9 @@ export const deleteItem = async (id, storeId) => {
   if (item.storeId !== Number(storeId)) {
     throw new Error("Unauthorized");
   }
-
-  return await deleteItemRepo(Number(id));
+try {
+    return await deleteItemRepo(Number(id));
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "item"));
+  }
 };

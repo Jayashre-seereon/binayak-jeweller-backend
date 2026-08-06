@@ -90,7 +90,10 @@ export const deleteDesign = async (id, storeId) => {
     throw new Error("Unauthorized");
   }
 
-
-  return await deleteDesignRepo(id);
+try {
+    return await deleteDesignRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "design"));
+  }
 
 };

@@ -25,20 +25,52 @@ export const getGradesService = async (storeId) => {
   return await repo.getGradesRepo(storeId);
 };
 // GET BY ID
-export const getGradeByIdService = async (id) => {
-  return await repo.getGradeByIdRepo(id);
+export const getGradeByIdService = async (id, storeId) => {
+  const grade = await repo.getGradeByIdRepo(id);
+
+  if (!grade) {
+    throw new Error("Grade not found");
+  }
+
+  if (grade.storeId !== storeId) {
+    throw new Error("Unauthorized");
+  }
+
+  return grade;
 };
 
 // UPDATE
-export const updateGradeService = async (id, data) => {
+export const updateGradeService = async (id, data, storeId) => {
+  const grade = await repo.getGradeByIdRepo(id);
+
+  if (!grade) {
+    throw new Error("Grade not found");
+  }
+
+  if (grade.storeId !== storeId) {
+    throw new Error("Unauthorized");
+  }
   if (data.percentage && data.percentage > 100) {
     throw new Error("Percentage cannot be more than 100");
   }
-
   return await repo.updateGradeRepo(id, data);
 };
 
 // DELETE
-export const deleteGradeService = async (id) => {
-  return await repo.deleteGradeRepo(id);
+export const deleteGradeService = async (id, storeId) => {
+  const grade = await repo.getGradeByIdRepo(id);
+
+  if (!grade) {
+    throw new Error("Grade not found");
+  }
+
+  if (grade.storeId !== storeId) {
+    throw new Error("Unauthorized");
+  }
+
+ try {
+    return await repo.deleteGradeRepo(id);
+  } catch (error) {
+    throw new Error(handleDeleteError(error, "grade"));
+  }
 };

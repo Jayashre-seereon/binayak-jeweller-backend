@@ -39,7 +39,8 @@ model Store {
   items         Item[]
   stones        Stone[]
   employees     Employee[]
-  partytype     Partytype[]
+  partytypes     Partytype[]
+  partymasters   Partymaster[]
 }
 
 model Brand {
@@ -211,7 +212,21 @@ model Partytype {
   
   storeId     Int
   store       Store   @relation(fields: [storeId], references: [id])
+  partymaster Partymaster[]
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
+model Partymaster {
+  id          Int     @id @default(autoincrement())
+  name        String
+  gst         String?
+  phone       String? 
+  storeId     Int
+  partytypeId Int
+  store       Store   @relation(fields: [storeId], references: [id])
+  partytype   Partytype     @relation(fields: [partytypeId], references: [id])
+  
   createdAt   DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -1,12 +1,11 @@
-const buildSuffix = () => {
-  const timePart = Date.now().toString(36).toUpperCase();
-  const randomPart = Math.random().toString(36).slice(2, 5).toUpperCase();
-  return `${timePart}${randomPart}`;
-};
-
-export const generateProductCode = async (name, category, metal) => {
+export const generateProductCode = async (name, category, metal, existingCodes = []) => {
   const cat = category?.slice(0, 3).toUpperCase() || "CAT";
   const met = metal?.slice(0, 3).toUpperCase() || "MET";
+  const nextNumber = existingCodes.reduce((max, code) => {
+    const match = String(code || "").match(/-(\d+)$/);
+    if (!match) return max;
+    return Math.max(max, Number(match[1]));
+  }, 0) + 1;
 
-  return `PRD-${cat}-${met}-${buildSuffix()}`;
+  return `PRD-${cat}-${met}-${String(nextNumber).padStart(4, "0")}`;
 };

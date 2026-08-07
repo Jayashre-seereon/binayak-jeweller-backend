@@ -30,12 +30,16 @@ export const createProduct = async (data, storeId) => {
   if (!metal) {
     throw new Error("Metal not found");
   }
-
+  const existingProducts = await prisma.product.findMany({
+    where: { storeId: Number(storeId) },
+    select: { productCode: true },
+  });
 
   const productCode = await generateProductCode(
     data.name,
     category.name,
-    metal.name
+    metal.name,
+    existingProducts.map((item) => item.productCode)
   );
 
 

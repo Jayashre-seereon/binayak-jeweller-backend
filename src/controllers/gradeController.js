@@ -31,8 +31,9 @@ export const getGrades = async (req, res) => {
 export const getGradeById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { storeId } = req.query;
 
-    const data = await service.getGradeByIdService(Number(id));
+    const data = await service.getGradeByIdService(Number(id), Number(storeId));
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -42,10 +43,12 @@ export const getGradeById = async (req, res) => {
 export const updateGrade = async (req, res) => {
   try {
     const { id } = req.params;
+    const { storeId } = req.query;
 
     const data = await service.updateGradeService(
       Number(id),
-      req.body
+      req.body,
+      Number(storeId)
     );
 
     res.json(data);
@@ -58,8 +61,9 @@ export const updateGrade = async (req, res) => {
 export const deleteGrade = async (req, res) => {
   try {
     const { id } = req.params;
+    const { storeId } = req.query;
 
-    await service.deleteGradeService(Number(id));
+    await service.deleteGradeService(Number(id), Number(storeId));
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

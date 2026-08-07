@@ -1,11 +1,9 @@
 import prisma from "../config/db.js";
 import {
-  createProductRepo,
   getProductsByStore,
   getProductByIdRepo,
   updateProductRepo,
   deleteProductRepo,
-  countProducts
 } from "../repositories/productRepository.js";
 
 import { generateProductCode } from "../utils/productCode.js";
@@ -34,14 +32,10 @@ export const createProduct = async (data, storeId) => {
   }
 
 
-  const count = await prisma.product.count();
-
-
   const productCode = await generateProductCode(
     data.name,
     category.name,
-    metal.name,
-    count
+    metal.name
   );
 
 
@@ -86,7 +80,19 @@ export const updateProduct = async (id, data, storeId) => {
     throw new Error("Unauthorized");
   }
 
-  return await updateProductRepo(id, data);
+  const updateData = {
+    ...data,
+  };
+
+  if (updateData.categoryId !== undefined) {
+    updateData.categoryId = Number(updateData.categoryId);
+  }
+
+  if (updateData.metalId !== undefined) {
+    updateData.metalId = Number(updateData.metalId);
+  }
+
+  return await updateProductRepo(id, updateData);
 };
 
 export const deleteProduct = async (id, storeId) => {

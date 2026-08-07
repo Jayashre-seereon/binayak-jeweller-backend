@@ -5,7 +5,6 @@ import {
   getItemByIdRepo,
   updateItemRepo,
   deleteItemRepo,
-  countItems,
 } from "../repositories/itemRepository.js";
 
 import { generateItemCode } from "../utils/itemCode.js";
@@ -34,14 +33,10 @@ export const createItem = async (data, storeId) => {
     throw new Error("Design not found");
   }
 
-  // Count Items
-  const count = await countItems();
-
   // Generate Item Code
  const itemCode = await generateItemCode(
   product.name,
-  design.name,
-  count
+  design.name
 );
 
   // Create Item

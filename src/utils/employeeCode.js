@@ -1,5 +1,9 @@
-export const generateEmployeeCode = async (count) => {
-  const number = String(count + 1).padStart(4, "0");
+const buildSuffix = () => {
+  const timePart = Date.now().toString(36).toUpperCase();
+  const randomPart = Math.random().toString(36).slice(2, 5).toUpperCase();
+  return `${timePart}${randomPart}`;
+};
 
-  return `EMP-${number}`;
+export const generateEmployeeCode = async () => {
+  return `EMP-${buildSuffix()}`;
 };

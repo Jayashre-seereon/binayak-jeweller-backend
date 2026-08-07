@@ -6,7 +6,6 @@ import {
   getEmployeeByIdRepo,
   updateEmployeeRepo,
   deleteEmployeeRepo,
-  countEmployees,
 } from "../repositories/employeeRepository.js";
 
 import { generateEmployeeCode } from "../utils/employeeCode.js";
@@ -25,9 +24,7 @@ export const createEmployee = async (data, storeId) => {
   }
 
   // Generate Employee Code
-  const count = await countEmployees();
-
-  const empCode = await generateEmployeeCode(count);
+  const empCode = await generateEmployeeCode();
 
   // Save Employee
   return await createEmployeeRepo({

@@ -27,8 +27,9 @@ export const getPurities = async (req, res) => {
 export const getPurityById = async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const storeId = Number(req.query.storeId);
 
-    const data = await service.getPurityById(id);
+    const data = await service.getPurityById(id, storeId);
 
     res.json({ success: true, data });
   } catch (err) {
@@ -39,8 +40,9 @@ export const getPurityById = async (req, res) => {
 export const updatePurity = async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const storeId = Number(req.query.storeId);
 
-    const data = await service.updatePurity(id, req.body);
+    const data = await service.updatePurity(id, req.body, storeId);
 
     res.json({ success: true, data });
   } catch (err) {
@@ -51,8 +53,9 @@ export const updatePurity = async (req, res) => {
 export const deletePurity = async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const storeId = Number(req.query.storeId);
 
-    await service.deletePurity(id);
+    await service.deletePurity(id, storeId);
 
     res.json({ success: true, message: "Deleted successfully" });
   } catch (err) {

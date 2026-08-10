@@ -4,9 +4,52 @@ import * as employeeService from "../services/employeeService.js";
 export const createEmployee = async (req, res) => {
   try {
     const storeId = Number(req.query.storeId);
+    const data = req.body;
+
+    if (!storeId) throw new Error("StoreId is required");
+
+    // Required fields
+    if (!data.name) throw new Error("Employee Name is required");
+    if (!data.mobile) throw new Error("Mobile is required");
+    if (!data.email) throw new Error("Email is required");
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new Error("Invalid email format");
+    }
+
+    // Mobile validation
+    const mobileRegex = /^[0-9]{10}$/;
+    if (!mobileRegex.test(data.mobile)) {
+      throw new Error("Mobile must be 10 digits");
+    }
+
+    // Salary validation
+    if (
+      data.basicSalary !== undefined &&
+      isNaN(Number(data.basicSalary))
+    ) {
+      throw new Error("Basic Salary must be a valid number");
+    }
+
+    if (
+      data.specialAllowance !== undefined &&
+      isNaN(Number(data.specialAllowance))
+    ) {
+      throw new Error("Special Allowance must be a valid number");
+    }
+
+    // Date validation
+    if (
+      data.dateOfJoining &&
+      isNaN(Date.parse(data.dateOfJoining))
+    ) {
+      throw new Error("Invalid Date of Joining");
+    }
 
     const employee = await employeeService.createEmployee(
-      req.body,
+      data,
       storeId
     );
 

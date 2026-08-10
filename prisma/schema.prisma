@@ -193,18 +193,33 @@ model Stone {
 }
 
 model Employee {
-  id          Int      @id @default(autoincrement())
-  empCode     String   @unique
-  name        String
-  mobile      String
-  email       String   @unique
-  salary      Float
+  id            Int      @id @default(autoincrement())
+  empCode       String   @unique
 
-  storeId     Int
-  store        Store    @relation(fields: [storeId], references: [id])
+  name          String
+  fatherName    String?
+  dateOfJoining DateTime?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  phone         String?
+  mobile        String
+  email         String   @unique
+
+  webAddress    String?
+
+  bankAccountNo String?
+  bankName      String?
+
+  basicSalary   Float?
+  specialAllowance Float?
+
+  addressLine1  String?
+  addressLine2  String?
+
+  storeId       Int
+  store         Store    @relation(fields: [storeId], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Partytype {

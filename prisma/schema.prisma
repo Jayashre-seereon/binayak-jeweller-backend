@@ -249,6 +249,8 @@ model Partymaster {
   phone       String? 
   storeId     Int
   partytypeId Int
+  ledger      String?
+  address     String?
   store       Store   @relation(fields: [storeId], references: [id])
   partytype   Partytype     @relation(fields: [partytypeId], references: [id])
   partyOpeningBalance PartyOpeningBalance[]

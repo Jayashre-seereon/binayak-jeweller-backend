@@ -28,24 +28,29 @@ export const getPartyMasters = async (req, res) => {
   }
 };
 // GET BY ID
+// GET BY ID
 export const getPartyMasterById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { storeId } = req.query;
 
-    const data = await service.getPartyMasterByIdService(Number(id));
+    const data = await service.getPartyMasterByIdService(Number(id), Number(storeId));
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 // UPDATE
 export const updatePartyMaster = async (req, res) => {
   try {
     const { id } = req.params;
+    const { storeId } = req.query;
 
     const data = await service.updatePartyMasterService(
       Number(id),
-      req.body
+      req.body,
+      Number(storeId)
     );
 
     res.json(data);
@@ -58,8 +63,9 @@ export const updatePartyMaster = async (req, res) => {
 export const deletePartyMaster = async (req, res) => {
   try {
     const { id } = req.params;
+    const { storeId } = req.query;
 
-    await service.deletePartyMasterService(Number(id));
+    await service.deletePartyMasterService(Number(id), Number(storeId));
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

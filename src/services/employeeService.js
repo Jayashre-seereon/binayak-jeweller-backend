@@ -24,6 +24,8 @@ export const createEmployee = async (data, storeId) => {
     throw new Error("Email already exists");
   }
 
+  // No retry loop needed anymore — generateEmployeeCode is now atomic
+  // (backed by StoreCounter), so it can never hand out a duplicate code.
   const empCode = await generateEmployeeCode(storeId);
 
   return await createEmployeeRepo({
@@ -31,9 +33,7 @@ export const createEmployee = async (data, storeId) => {
     name: data.name,
     fatherName: data.fatherName || null,
 
-    dateOfJoining: data.dateOfJoining
-      ? new Date(data.dateOfJoining)
-      : null,
+    dateOfJoining: data.dateOfJoining ? new Date(data.dateOfJoining) : null,
 
     phone: data.phone || null,
     mobile: data.mobile,
@@ -45,9 +45,7 @@ export const createEmployee = async (data, storeId) => {
     bankName: data.bankName || null,
 
     basicSalary:
-      data.basicSalary !== undefined
-        ? Number(data.basicSalary)
-        : null,
+      data.basicSalary !== undefined ? Number(data.basicSalary) : null,
 
     specialAllowance:
       data.specialAllowance !== undefined
@@ -106,24 +104,18 @@ export const updateEmployee = async (id, data, storeId) => {
 
   return await updateEmployeeRepo(Number(id), {
     ...(data.name !== undefined && { name: data.name }),
-    ...(data.fatherName !== undefined && {
-      fatherName: data.fatherName,
-    }),
+    ...(data.fatherName !== undefined && { fatherName: data.fatherName }),
     ...(data.dateOfJoining !== undefined && {
       dateOfJoining: new Date(data.dateOfJoining),
     }),
     ...(data.phone !== undefined && { phone: data.phone }),
     ...(data.mobile !== undefined && { mobile: data.mobile }),
     ...(data.email !== undefined && { email: data.email }),
-    ...(data.webAddress !== undefined && {
-      webAddress: data.webAddress,
-    }),
+    ...(data.webAddress !== undefined && { webAddress: data.webAddress }),
     ...(data.bankAccountNo !== undefined && {
       bankAccountNo: data.bankAccountNo,
     }),
-    ...(data.bankName !== undefined && {
-      bankName: data.bankName,
-    }),
+    ...(data.bankName !== undefined && { bankName: data.bankName }),
     ...(data.basicSalary !== undefined && {
       basicSalary: Number(data.basicSalary),
     }),

@@ -27,7 +27,7 @@ export const getPartyMasters = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-// GET BY ID
+
 // GET BY ID
 export const getPartyMasterById = async (req, res) => {
   try {

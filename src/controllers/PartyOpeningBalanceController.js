@@ -31,8 +31,8 @@ export const getPartyOpeningBalances = async (req, res) => {
 export const getPartyOpeningBalanceById = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const data = await service.getPartyOpeningBalanceByIdService(Number(id));
+    const { storeId } = req.query;
+    const data = await service.getPartyOpeningBalanceByIdService(Number(id), Number(storeId));
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -42,10 +42,11 @@ export const getPartyOpeningBalanceById = async (req, res) => {
 export const updatePartyOpeningBalance = async (req, res) => {
   try {
     const { id } = req.params;
-
+    const { storeId } = req.query;
     const data = await service.updatePartyOpeningBalanceService(
       Number(id),
-      req.body
+      req.body,
+      Number(storeId)
     );
 
     res.json(data);
@@ -58,8 +59,8 @@ export const updatePartyOpeningBalance = async (req, res) => {
 export const deletePartyOpeningBalance = async (req, res) => {
   try {
     const { id } = req.params;
-
-    await service.deletePartyOpeningBalanceService(Number(id));
+    const { storeId } = req.query;
+    await service.deletePartyOpeningBalanceService(Number(id), Number(storeId));
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

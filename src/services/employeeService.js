@@ -24,12 +24,13 @@ export const createEmployee = async (data, storeId) => {
     throw new Error("Email already exists");
   }
 
-  const empCode = await generateEmployeeCode();
+  const empCode = await generateEmployeeCode(storeId);
 
   return await createEmployeeRepo({
     empCode,
     name: data.name,
     fatherName: data.fatherName || null,
+
     dateOfJoining: data.dateOfJoining
       ? new Date(data.dateOfJoining)
       : null,

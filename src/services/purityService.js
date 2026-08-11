@@ -58,3 +58,11 @@ export const deletePurity = async (id, storeId) => {
     throw new Error(handleDeleteError(error, "purity"));
   }
 };
+
+export const getPuritiesByMetalId = async (metalId, storeId) => {
+  if (!metalId) {
+    throw new Error("Metal ID is required");
+  }
+
+  return repo.getPuritiesByMetalIdRepo(metalId, storeId);
+};

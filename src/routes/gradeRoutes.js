@@ -6,6 +6,7 @@ const router = express.Router();
 router.post("/create", authMiddleware, ctrl.createGrade);
 router.get("/get", authMiddleware, ctrl.getGrades);
 router.get("/getById/:id", authMiddleware, ctrl.getGradeById);
+router.get("/getByPurity/:purityId", authMiddleware, ctrl.getGradesByPurityId);
 router.put("/update/:id", authMiddleware, ctrl.updateGrade);
 router.delete("/delete/:id", authMiddleware, ctrl.deleteGrade);
 

@@ -75,3 +75,11 @@ export const deleteGradeService = async (id, storeId) => {
     throw new Error(handleDeleteError(error, "grade"));
   }
 };
+// GET ALL GRADES BY PURITY ID
+export const getGradesByPurityIdService = async (purityId, storeId) => {
+  if (!purityId) {
+    throw new Error("Purity ID is required");
+  }
+
+  return await repo.getGradesByPurityIdRepo(purityId, storeId);
+};

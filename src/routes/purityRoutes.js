@@ -7,6 +7,7 @@ const router = express.Router();
 router.post("/create", authMiddleware, ctrl.createPurity);
 router.get("/get", authMiddleware, ctrl.getPurities);
 router.get("/getById/:id", authMiddleware, ctrl.getPurityById);
+router.get("/getByMetal/:metalId",authMiddleware,ctrl.getPuritiesByMetalId);
 router.put("/update/:id", authMiddleware, ctrl.updatePurity);
 router.delete("/delete/:id", authMiddleware, ctrl.deletePurity);
 

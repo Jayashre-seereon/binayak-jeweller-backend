@@ -15,7 +15,24 @@ export const createGrade = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+// GET GRADES BY PURITY ID
+export const getGradesByPurityId = async (req, res) => {
+  try {
+    const { purityId } = req.params;
+    const { storeId } = req.query;
 
+    const data = await service.getGradesByPurityIdService(
+      Number(purityId),
+      Number(storeId)
+    );
+
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({
+      error: err.message,
+    });
+  }
+};
 // GET
 export const getGrades = async (req, res) => {
   try {

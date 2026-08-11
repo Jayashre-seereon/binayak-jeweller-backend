@@ -30,3 +30,18 @@ export const deletePurityRepo = (id) => {
     where: { id },
   });
 };
+
+export const getPuritiesByMetalIdRepo = (metalId, storeId) => {
+  return prisma.purity.findMany({
+    where: {
+      metalId,
+      storeId,
+    },
+    include: {
+      metal: true,
+    },
+    orderBy: {
+      id: "asc",
+    },
+  });
+};

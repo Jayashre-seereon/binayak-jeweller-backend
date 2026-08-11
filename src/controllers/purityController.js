@@ -62,3 +62,23 @@ export const deletePurity = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+export const getPuritiesByMetalId = async (req, res) => {
+  try {
+    const metalId = Number(req.params.metalId);
+    const storeId = Number(req.query.storeId);
+
+    const data = await service.getPuritiesByMetalId(
+      metalId,
+      storeId
+    );
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    res.status(400).json({
+      message: err.message,
+    });
+  }
+};

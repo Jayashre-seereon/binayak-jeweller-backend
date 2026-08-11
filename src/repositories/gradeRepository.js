@@ -18,6 +18,25 @@ export const getGradesRepo = (storeId) => {
     },
   });
 };
+// GET ALL GRADES BY PURITY ID
+export const getGradesByPurityIdRepo = (purityId, storeId) => {
+  return prisma.grade.findMany({
+    where: {
+      purityId,
+      storeId,
+    },
+    include: {
+      purity: {
+        include: {
+          metal: true,
+        },
+      },
+    },
+    orderBy: {
+      id: "asc",
+    },
+  });
+};
 // GET BY ID
 export const getGradeByIdRepo = (id) => {
   return prisma.grade.findUnique({

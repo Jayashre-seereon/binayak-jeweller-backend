@@ -365,7 +365,93 @@ export const updatePurchase = async (id, data, storeId) => {
     updateData.narration = data.narration;
   }
 
- 
+  if (data.items !== undefined) {
+    if (!Array.isArray(data.items) || data.items.length === 0) {
+      throw new Error("At least one purchase item is required");
+    }
+
+    for (const item of data.items) {
+      if (item.productId) {
+        const product = await prisma.product.findFirst({
+          where: { id: Number(item.productId), storeId: Number(storeId) }
+        });
+        if (!product) throw new Error("Product not found for this store");
+      }
+
+      if (item.metalId) {
+        const metal = await prisma.metal.findFirst({
+          where: { id: Number(item.metalId), storeId: Number(storeId) }
+        });
+        if (!metal) throw new Error("Metal not found for this store");
+      }
+
+      if (item.purityId) {
+        const purity = await prisma.purity.findFirst({
+          where: { id: Number(item.purityId), storeId: Number(storeId) }
+        });
+        if (!purity) throw new Error("Purity not found for this store");
+      }
+
+      if (item.gradeId) {
+        const grade = await prisma.grade.findFirst({
+          where: { id: Number(item.gradeId), storeId: Number(storeId) }
+        });
+        if (!grade) throw new Error("Grade not found for this store");
+      }
+
+      if (item.stoneId) {
+        const stone = await prisma.stone.findFirst({
+          where: { id: Number(item.stoneId), storeId: Number(storeId) }
+        });
+        if (!stone) throw new Error("Stone not found for this store");
+      }
+    }
+
+    const purchaseItems = data.items.map((item) => ({
+      productId: item.productId ? Number(item.productId) : null,
+      metalId: item.metalId ? Number(item.metalId) : null,
+      purityId: item.purityId ? Number(item.purityId) : null,
+      gradeId: item.gradeId ? Number(item.gradeId) : null,
+      stoneId: item.stoneId ? Number(item.stoneId) : null,
+      pieces: item.pieces ? Number(item.pieces) : 1,
+      grossWeight: Number(item.grossWeight || 0),
+      stoneWeight: Number(item.stoneWeight || 0),
+      netWeight: Number(item.netWeight || 0),
+      dustWeight: Number(item.dustWeight || 0),
+      deductionWeight: Number(item.deductionWeight || 0),
+      pureWeight: Number(item.pureWeight || 0),
+      actualWeight: Number(item.actualWeight || 0),
+      balanceWeight: Number(item.balanceWeight || 0),
+      purity:
+        item.purity !== undefined && item.purity !== null && item.purity !== ""
+          ? Number(item.purity)
+          : null,
+      touchPercentage: item.touchPercentage ? Number(item.touchPercentage) : null,
+      fineness: item.fineness ? Number(item.fineness) : null,
+      rate: Number(item.rate || 0),
+      makingCharges: Number(item.makingCharges || 0),
+      wastagePercentage: Number(item.wastagePercentage || 0),
+      hallmarkCharges: Number(item.hallmarkCharges || 0),
+      metalAmount: Number(item.metalAmount || 0),
+      stoneAmount: Number(item.stoneAmount || 0),
+      otherAmount: Number(item.otherAmount || 0),
+      discount: Number(item.discount || 0),
+      totalAmount: Number(item.totalAmount || 0),
+      huidNo: item.huidNo || null,
+      tagNo: item.tagNo || null,
+      barSerialNo: item.barSerialNo || null,
+      assayCertNo: item.assayCertNo || null,
+      vatType: item.vatType || null,
+      narration: item.narration || null,
+      itemPhoto: item.itemPhoto || null,
+      extraDetails: item.extraDetails || null
+    }));
+
+    updateData.items = {
+      deleteMany: {},
+      create: purchaseItems
+    };
+  }
 
   return await updatePurchaseRepo(Number(id), updateData);
 };

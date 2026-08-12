@@ -22,6 +22,23 @@ export const getItemsByStore = (storeId) => {
   });
 };
 
+export const getItemsByProductIdRepo = (productId, storeId) => {
+  return prisma.item.findMany({
+    where: {
+      productId,
+      storeId,
+    },
+    include: {
+      product: true,
+      design: true,
+      store: true,
+    },
+    orderBy: {
+      id: "asc",
+    },
+  });
+};
+
 export const getItemByIdRepo = (id) => {
   return prisma.item.findUnique({
     where: {

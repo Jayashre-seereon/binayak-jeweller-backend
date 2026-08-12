@@ -2,6 +2,7 @@ import prisma from "../config/db.js";
 import {
   createItemRepo,
   getItemsByStore,
+  getItemsByProductIdRepo,
   getItemByIdRepo,
   updateItemRepo,
   deleteItemRepo,
@@ -54,6 +55,15 @@ export const createItem = async (data, storeId) => {
 // Get All Items
 export const getItems = async (storeId) => {
   return await getItemsByStore(Number(storeId));
+};
+
+// Get Items By Product Id
+export const getItemsByProductId = async (productId, storeId) => {
+  if (!productId) {
+    throw new Error("Product ID is required");
+  }
+
+  return await getItemsByProductIdRepo(Number(productId), Number(storeId));
 };
 
 // Get Item By Id

@@ -25,10 +25,7 @@ export const createPurchase = async (data, storeId) => {
     throw new Error("Invalid purchase type");
   }
 
-  // ===== CHANGED: partyId is now conditional, not always required =====
-  if (data.purchaseType !== "OLD" && !data.partyId) {
-    throw new Error("Party is required");
-  }
+  
 
   if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
     throw new Error("At least one purchase item is required");

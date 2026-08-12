@@ -14,6 +14,19 @@ export const getProductsByStore = (storeId) => {
   });
 };
 
+export const getProductsByMetalIdRepo = (metalId, storeId) => {
+  return prisma.product.findMany({
+    where: { metalId, storeId },
+    include: {
+      category: true,
+      metal: true,
+    },
+    orderBy: {
+      id: "asc",
+    },
+  });
+};
+
 export const getProductByIdRepo = (id) => {
   return prisma.product.findUnique({
     where: { id },

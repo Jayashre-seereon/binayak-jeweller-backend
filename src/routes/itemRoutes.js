@@ -2,6 +2,7 @@ import express from "express";
 import {
   createItem,
   getItems,
+  getItemsByProductId,
   getItemById,
   updateItem,
   deleteItem,
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.post("/create", authMiddleware, upload.single("image"), createItem);
 router.get("/get", authMiddleware, getItems);
+router.get("/getByProduct/:productId", authMiddleware, getItemsByProductId);
 router.get("/getById/:id", authMiddleware, getItemById);
 router.put("/update/:id", authMiddleware, upload.single("image"), updateItem);
 router.delete("/delete/:id", authMiddleware, deleteItem);

@@ -30,6 +30,20 @@ export const getProducts = async (req, res) => {
   }
 };
 
+export const getProductsByMetalId = async (req, res) => {
+  try {
+    const products = await productService.getProductsByMetalId(
+      Number(req.params.metalId),
+      Number(req.query.storeId)
+    );
+
+    res.json({ success: true, products });
+
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
 export const getProductById = async (req, res) => {
   try {
     const product = await productService.getProductById(

@@ -3,6 +3,7 @@ import prisma from "../config/db.js";
 import {
   createStoneRepo,
   getStonesByStore,
+  getStonesByProductIdAndItemIdRepo,
   getStoneByIdRepo,
   updateStoneRepo,
   deleteStoneRepo,
@@ -42,6 +43,18 @@ export const createStone = async (data, storeId) => {
 // Get All
 export const getStones = async (storeId) => {
   return await getStonesByStore(Number(storeId));
+};
+
+// Get By Product Id And Item Id
+export const getStonesByProductIdAndItemId = async (productId, itemId, storeId) => {
+  if (!productId) throw new Error("Product ID is required");
+  if (!itemId) throw new Error("Item ID is required");
+
+  return await getStonesByProductIdAndItemIdRepo(
+    Number(productId),
+    Number(itemId),
+    Number(storeId)
+  );
 };
 
 // Get By Id

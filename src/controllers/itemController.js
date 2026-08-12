@@ -45,6 +45,26 @@ export const getItems = async (req, res) => {
   }
 };
 
+// Get Items By Product Id
+export const getItemsByProductId = async (req, res) => {
+  try {
+    const items = await itemService.getItemsByProductId(
+      Number(req.params.productId),
+      Number(req.query.storeId)
+    );
+
+    res.status(200).json({
+      success: true,
+      items,
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 // Get Item By Id
 export const getItemById = async (req, res) => {
   try {

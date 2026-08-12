@@ -37,6 +37,26 @@ export const getStones = async (req, res) => {
   }
 };
 
+export const getStonesByProductIdAndItemId = async (req, res) => {
+  try {
+    const stones = await stoneService.getStonesByProductIdAndItemId(
+      Number(req.params.productId),
+      Number(req.params.itemId),
+      Number(req.query.storeId)
+    );
+
+    res.json({
+      success: true,
+      stones,
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 export const getStoneById = async (req, res) => {
   try {
     const stone = await stoneService.getStoneById(

@@ -1,0 +1,150 @@
+import * as purchaseService from "../services/purchaseService.js";
+
+export const createPurchase = async (req, res) => {
+  try {
+    const storeId = Number(req.query.storeId);
+
+    const data = typeof req.body.data === "string"
+      ? JSON.parse(req.body.data)
+      : req.body;
+
+    // ===== CHANGED: use file.location (S3 URL) instead of local path =====
+    if (req.files?.document?.[0]) {
+      data.document = req.files.document[0].location;
+    }
+
+    if (req.files?.itemPhotos?.length) {
+      req.files.itemPhotos.forEach((file, i) => {
+        if (data.items?.[i]) {
+          data.items[i].itemPhoto = file.location;
+        }
+      });
+    }
+
+    const purchase = await purchaseService.createPurchase(data, storeId);
+
+    res.status(201).json({
+      success: true,
+      message: "Purchase created successfully",
+      purchase
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const updatePurchase = async (req, res) => {
+  try {
+    const data = typeof req.body.data === "string"
+      ? JSON.parse(req.body.data)
+      : req.body;
+
+    // ===== CHANGED: use file.location (S3 URL) =====
+    if (req.files?.document?.[0]) {
+      data.document = req.files.document[0].location;
+    }
+
+    if (req.files?.itemPhotos?.length) {
+      req.files.itemPhotos.forEach((file, i) => {
+        if (data.items?.[i]) {
+          data.items[i].itemPhoto = file.location;
+        }
+      });
+    }
+
+    const purchase = await purchaseService.updatePurchase(
+      Number(req.params.id),
+      data,
+      Number(req.query.storeId)
+    );
+
+    res.json({
+      success: true,
+      message: "Purchase updated successfully",
+      purchase
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// getPurchases, getPurchaseById, deletePurchase, getPurchaseCount — unchanged, copy as-is
+export const getPurchases = async (req, res) => {
+  try {
+    const storeId = Number(req.query.storeId);
+
+    const purchases = await purchaseService.getPurchases(
+      storeId
+    );
+
+    res.json({
+      success: true,
+      purchases
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+export const getPurchaseById = async (req, res) => {
+  try {
+    const purchase = await purchaseService.getPurchaseById(
+      Number(req.params.id),
+      Number(req.query.storeId)
+    );
+
+    res.json({
+      success: true,
+      purchase
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+
+export const deletePurchase = async (req, res) => {
+  try {
+    await purchaseService.deletePurchase(
+      Number(req.params.id),
+      Number(req.query.storeId)
+    );
+
+    res.json({
+      success: true,
+      message: "Purchase deleted successfully"
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+export const getPurchaseCount = async (req, res) => {
+  try {
+    const storeId = Number(req.query.storeId);
+
+    const count = await purchaseService.getPurchaseCount(
+      storeId
+    );
+
+    res.json({
+      success: true,
+      count
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};

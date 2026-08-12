@@ -17,6 +17,7 @@ import partytypeRoutes from "./routes/partytypeRoutes.js";
 import partyMasterRoutes from "./routes/partyMasterRoutes.js";
 import partyOpeningBalanceRoutes from "./routes/PartyOpeningBalanceRoutes.js";
 import RateRoutes from "./routes/rateRoutes.js";
+import Purchases from "./routes/purchaseRoutes.js";
 const app = express();
 app.use(
   cors({
@@ -42,6 +43,7 @@ app.use("/api/partytypes", partytypeRoutes);
 app.use("/api/partymasters", partyMasterRoutes);
 app.use("/api/partyopeningbalances", partyOpeningBalanceRoutes);
 app.use("/api/rates", RateRoutes);
+app.use("/api/purchases", Purchases);
 app.get("/", (req, res) => {
   res.send("API is running");
 });

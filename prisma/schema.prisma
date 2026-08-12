@@ -4,57 +4,58 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")  
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id            Int     @id @default(autoincrement())
-  name          String
-  email         String  @unique
-  password      String
-  role          String  @default("ADMIN") 
-  resetToken    String?
-  refreshToken  String?
-  createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  password     String
+  role         String   @default("ADMIN")
+  resetToken   String?
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Store {
-  id            Int     @id @default(autoincrement())
-  storeName     String
-  location      String?
-  email         String  @unique
-  password      String
-  role          String  @default("STORE")
-  refreshToken  String?
-  createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  brands        Brand[]
-  categories    Category[] 
-  metals        Metal[]
-  purities      Purity[] 
-  grades        Grade[]
-  designs       Design[]
-  products      Product[]
-  items         Item[]
-  stones        Stone[]
-  employees     Employee[]
-  partytypes     Partytype[]
-  partymasters   Partymaster[]
+  id                  Int                   @id @default(autoincrement())
+  storeName           String
+  location            String?
+  email               String                @unique
+  password            String
+  role                String                @default("STORE")
+  refreshToken        String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  brands              Brand[]
+  categories          Category[]
+  metals              Metal[]
+  purities            Purity[]
+  grades              Grade[]
+  designs             Design[]
+  products            Product[]
+  items               Item[]
+  stones              Stone[]
+  employees           Employee[]
+  partytypes          Partytype[]
+  partymasters        Partymaster[]
   partyOpeningBalance PartyOpeningBalance[]
-  rateMaster      RateMaster[]
-  storeCounter      StoreCounter?
+  rateMaster          RateMaster[]
+  purchases           Purchase[]
+  storeCounter        StoreCounter?
 }
 
 model Brand {
   id          Int     @id @default(autoincrement())
   name        String
   description String?
-  
-  storeId     Int
-  store       Store   @relation(fields: [storeId], references: [id])
 
-  createdAt   DateTime @default(now())
+  storeId Int
+  store   Store @relation(fields: [storeId], references: [id])
+
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
@@ -63,27 +64,27 @@ model Category {
   name        String
   description String?
 
-  storeId     Int
-  store       Store   @relation(fields: [storeId], references: [id])
-  products    Product[]
-  createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  storeId   Int
+  store     Store     @relation(fields: [storeId], references: [id])
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
-
 
 model Metal {
   id          Int     @id @default(autoincrement())
   name        String
   description String?
 
-  storeId     Int
-  store       Store   @relation(fields: [storeId], references: [id])
-  purities    Purity[] 
-  products    Product[]
-  rateMaster  RateMaster[]
+  storeId             Int
+  store               Store                 @relation(fields: [storeId], references: [id])
+  purities            Purity[]
+  products            Product[]
+  rateMaster          RateMaster[]
+  purchaseItems       PurchaseItem[]
   partyOpeningBalance PartyOpeningBalance[]
-  createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
 }
 
 model Purity {
@@ -91,214 +92,333 @@ model Purity {
   name        String
   description String?
 
-  metalId     Int
-  metal       Metal   @relation(fields: [metalId], references: [id])
+  metalId Int
+  metal   Metal @relation(fields: [metalId], references: [id])
 
-  storeId     Int
-  
-  store       Store   @relation(fields: [storeId], references: [id])
-  
-  grades      Grade[] 
-  rateMaster RateMaster[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  storeId Int
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  grades        Grade[]
+  rateMaster    RateMaster[]
+  purchaseItems PurchaseItem[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Grade {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   name        String
   percentage  Float
   description String?
 
-  purityId    Int
-  purity      Purity  @relation(fields: [purityId], references: [id])
+  purityId Int
+  purity   Purity @relation(fields: [purityId], references: [id])
 
-  storeId     Int
-  store       Store   @relation(fields: [storeId], references: [id])
-  rateMaster RateMaster[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  storeId       Int
+  store         Store          @relation(fields: [storeId], references: [id])
+  rateMaster    RateMaster[]
+  purchaseItems PurchaseItem[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Design {
-  id          Int     @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
   description String?
-  image       String? 
+  image       String?
   storeId     Int
-  store       Store   @relation(fields: [storeId], references: [id])
-  items   Item[]
+  store       Store    @relation(fields: [storeId], references: [id])
+  items       Item[]
   createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt   DateTime @updatedAt
 }
 
 model Product {
-  id          Int      @id @default(autoincrement())
-  productCode String   @unique
+  id          Int     @id @default(autoincrement())
+  productCode String  @unique
   name        String
   image       String?
   description String?
 
-  categoryId  Int
-  category    Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
 
-  metalId     Int
-  metal       Metal    @relation(fields: [metalId], references: [id])
+  metalId Int
+  metal   Metal @relation(fields: [metalId], references: [id])
 
-  storeId     Int
-  store       Store    @relation(fields: [storeId], references: [id])
+  storeId Int
+  store   Store @relation(fields: [storeId], references: [id])
 
-  items   Item[]
-  stones  Stone[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  items         Item[]
+  purchaseItems PurchaseItem[]
+  stones        Stone[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Item {
-  id          Int      @id @default(autoincrement())
-  itemCode    String   @unique
+  id          Int     @id @default(autoincrement())
+  itemCode    String  @unique
   name        String
   image       String?
   description String?
 
-  productId   Int
-  product     Product  @relation(fields: [productId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
 
-  designId    Int
-  design      Design   @relation(fields: [designId], references: [id])
+  designId Int
+  design   Design @relation(fields: [designId], references: [id])
 
-  storeId     Int
-  store       Store    @relation(fields: [storeId], references: [id])
+  storeId Int
+  store   Store @relation(fields: [storeId], references: [id])
 
-  stones      Stone[]
+  stones Stone[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Stone {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   name        String
   description String?
 
-  productId   Int
-  product     Product  @relation(fields: [productId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
 
-  itemId      Int
-  item        Item     @relation(fields: [itemId], references: [id])
+  itemId Int
+  item   Item @relation(fields: [itemId], references: [id])
 
-  storeId     Int
-  store       Store    @relation(fields: [storeId], references: [id])
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  storeId       Int
+  store         Store          @relation(fields: [storeId], references: [id])
+  purchaseItems PurchaseItem[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Employee {
-  id            Int      @id @default(autoincrement())
-  empCode       String   @unique
+  id      Int    @id @default(autoincrement())
+  empCode String @unique
 
   name          String
   fatherName    String?
   dateOfJoining DateTime?
 
-  phone         String?
-  mobile        String
-  email         String   @unique
+  phone  String?
+  mobile String
+  email  String  @unique
 
-  webAddress    String?
+  webAddress String?
 
   bankAccountNo String?
   bankName      String?
 
-  basicSalary   Float?
+  basicSalary      Float?
   specialAllowance Float?
 
-  addressLine1  String?
-  addressLine2  String?
+  addressLine1 String?
+  addressLine2 String?
+  purchases    Purchase[]
+  storeId      Int
+  store        Store      @relation(fields: [storeId], references: [id])
 
-  storeId       Int
-  store         Store    @relation(fields: [storeId], references: [id])
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StoreCounter {
-  id            Int   @id @default(autoincrement())
-  storeId       Int   @unique
-  lastEmpNumber Int   @default(0)
-  store         Store @relation(fields: [storeId], references: [id])
+  id                Int   @id @default(autoincrement())
+  storeId           Int   @unique
+  lastEmpNumber     Int   @default(0)
+  lastInvoiceNumber Int   @default(0)
+  store             Store @relation(fields: [storeId], references: [id])
 }
 
 model Partytype {
   id          Int     @id @default(autoincrement())
   name        String
   description String?
-  
+
   storeId     Int
-  store       Store   @relation(fields: [storeId], references: [id])
+  store       Store         @relation(fields: [storeId], references: [id])
   partymaster Partymaster[]
-  createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 model Partymaster {
-  id          Int     @id @default(autoincrement())
-  name        String
-  gst         String?
-  phone       String? 
-  storeId     Int
-  partytypeId Int
-  ledger      String?
-  address     String?
-  store       Store   @relation(fields: [storeId], references: [id])
-  partytype   Partytype     @relation(fields: [partytypeId], references: [id])
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  gst                 String?
+  phone               String?
+  storeId             Int
+  partytypeId         Int
+  ledger              String?
+  address             String?
+  store               Store                 @relation(fields: [storeId], references: [id])
+  partytype           Partytype             @relation(fields: [partytypeId], references: [id])
   partyOpeningBalance PartyOpeningBalance[]
-  createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  purchases           Purchase[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
 }
 
 model PartyOpeningBalance {
-  id          Int     @id @default(autoincrement())
-  debit       Int?
-  credit      Int?
-  type        String
-  year        String
-  storeId     Int
+  id            Int         @id @default(autoincrement())
+  debit         Int?
+  credit        Int?
+  type          String
+  year          String
+  storeId       Int
   partymasterId Int
-  metalId     Int
-  store       Store   @relation(fields: [storeId], references: [id])
-  partymaster   Partymaster     @relation(fields: [partymasterId], references: [id])
-   metal       Metal   @relation(fields: [metalId], references: [id])
+  metalId       Int
+  store         Store       @relation(fields: [storeId], references: [id])
+  partymaster   Partymaster @relation(fields: [partymasterId], references: [id])
+  metal         Metal       @relation(fields: [metalId], references: [id])
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model RateMaster {
-  id            Int     @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  metalId       Int
-  purityId      Int
-  gradeId       Int?
+  metalId  Int
+  purityId Int
+  gradeId  Int?
 
-  unit          String  
+  unit String
 
-  saleRate      Float
-  exchangeRate  Float
-  cashRate      Float
+  saleRate     Float
+  exchangeRate Float
+  cashRate     Float
 
   effectiveDate DateTime @default(now())
 
-  storeId       Int
+  storeId Int
 
-  metal         Metal   @relation(fields: [metalId], references: [id])
-  purity        Purity  @relation(fields: [purityId], references: [id])
-  grade         Grade?  @relation(fields: [gradeId], references: [id])
-  store         Store   @relation(fields: [storeId], references: [id])
+  metal  Metal  @relation(fields: [metalId], references: [id])
+  purity Purity @relation(fields: [purityId], references: [id])
+  grade  Grade? @relation(fields: [gradeId], references: [id])
+  store  Store  @relation(fields: [storeId], references: [id])
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PurchaseType {
+  ORNAMENT
+  OLD
+  BULLION
+}
+
+model Purchase {
+  id           Int          @id @default(autoincrement())
+  invoiceNo    String?       @unique
+  purchaseType PurchaseType
+
+  partyId    Int?
+  employeeId Int?
+  storeId    Int
+
+  date          DateTime  @default(now())
+  referenceNo   String?
+  referenceDate DateTime?
+  address       String?
+
+  placeOfSupply String?
+  isRCM         Boolean @default(false)
+
+  customerName     String?
+  customerPhone    String?
+  customerIdType   String?
+  customerIdNumber String?
+
+  document    String?
+  attachments Json?
+
+  subtotal    Float @default(0)
+  discount    Float @default(0)
+  igst        Float @default(0)
+  cgst        Float @default(0)
+  sgst        Float @default(0)
+  taxAmount   Float @default(0)
+  roundOff    Float @default(0)
+  totalAmount Float @default(0)
+
+  paymentMode String?
+  paidAmount  Float   @default(0)
+  dueAmount   Float   @default(0)
+
+  narration String?
+
+  party    Partymaster?   @relation(fields: [partyId], references: [id])
+  employee Employee?      @relation(fields: [employeeId], references: [id])
+  store    Store          @relation(fields: [storeId], references: [id])
+  items    PurchaseItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PurchaseItem {
+  id         Int  @id @default(autoincrement())
+  purchaseId Int
+  productId  Int?
+  metalId    Int?
+  purityId   Int?
+  gradeId    Int?
+  stoneId    Int?
+
+  pieces Int? @default(1) // ADD - qty count
+
+  grossWeight Float @default(0)
+  stoneWeight Float @default(0)
+  netWeight   Float @default(0)
+
+  dustWeight      Float @default(0)
+  deductionWeight Float @default(0) // ADD - melting/negotiated loss (OLD)
+
+  pureWeight    Float @default(0)
+  actualWeight  Float @default(0)
+  balanceWeight Float @default(0)
+
+  purity          Float?
+  touchPercentage Float? // ADD - tested purity (OLD)
+  fineness        Float? // ADD - bullion fineness e.g. 999.9
+
+  rate Float @default(0)
+
+  makingCharges     Float @default(0) // ADD
+  wastagePercentage Float @default(0) // ADD
+  hallmarkCharges   Float @default(0) // ADD
+
+  metalAmount Float @default(0)
+  stoneAmount Float @default(0)
+  otherAmount Float @default(0)
+  discount    Float @default(0) // ADD
+  totalAmount Float @default(0)
+
+  huidNo      String? // ADD - mandatory for hallmarked ornaments
+  tagNo       String? // ADD - stock traceability
+  barSerialNo String? // ADD - bullion bar/coin serial
+  assayCertNo String? // ADD - bullion assay cert
+
+  vatType   String?
+  narration String?
+  itemPhoto String? // ADD
+
+  extraDetails Json? // ADD - type-specific catch-all
+
+  purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product      Product? @relation(fields: [productId], references: [id])
+  metal        Metal?   @relation(fields: [metalId], references: [id])
+  purityMaster Purity?  @relation(fields: [purityId], references: [id])
+  grade        Grade?   @relation(fields: [gradeId], references: [id])
+  stone        Stone?   @relation(fields: [stoneId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

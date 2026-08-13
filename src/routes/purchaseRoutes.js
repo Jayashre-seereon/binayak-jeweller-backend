@@ -7,7 +7,8 @@ import {
   getPurchaseById,
   updatePurchase,
   deletePurchase,
-  getPurchaseCount
+  getPurchaseCount,
+  downloadPurchasePdf
 } from "../controllers/purchaseController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 
@@ -30,5 +31,5 @@ router.put("/update/:id", authMiddleware, purchaseUpload, updatePurchase);
 router.delete("/delete/:id", authMiddleware, deletePurchase);
 
 router.get("/count", authMiddleware, getPurchaseCount);
-
+router.get("/downloadPdf/:id", authMiddleware, downloadPurchasePdf);
 export default router;

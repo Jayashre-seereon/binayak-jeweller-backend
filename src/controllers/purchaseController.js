@@ -1,5 +1,5 @@
 import * as purchaseService from "../services/purchaseService.js";
-
+import * as purchasePdfService from "../services/purchasePdfService.js";
 export const createPurchase = async (req, res) => {
   try {
     const storeId = Number(req.query.storeId);
@@ -146,5 +146,41 @@ export const getPurchaseCount = async (req, res) => {
       success: false,
       message: err.message
     });
+  }
+};
+
+export const downloadPurchasePdf = async (req, res) => {
+  try {
+    const purchaseId = Number(req.params.id);
+    const storeId = Number(req.query.storeId);
+
+    if (!purchaseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Purchase ID is required"
+      });
+    }
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: "Store ID is required"
+      });
+    }
+
+    await purchasePdfService.generatePurchasePdf(
+      purchaseId,
+      storeId,
+      res
+    );
+  } catch (err) {
+    console.error("Purchase PDF Error:", err);
+
+    if (!res.headersSent) {
+      res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
   }
 };

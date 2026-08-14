@@ -175,6 +175,7 @@ model Item {
   store   Store @relation(fields: [storeId], references: [id])
 
   stones Stone[]
+  purchaseItems PurchaseItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -366,6 +367,7 @@ model Purchase {
 model PurchaseItem {
   id         Int  @id @default(autoincrement())
   purchaseId Int
+  itemId     Int?
   productId  Int?
   metalId    Int?
   purityId   Int?
@@ -413,6 +415,7 @@ model PurchaseItem {
   extraDetails Json? // ADD - type-specific catch-all
 
   purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  item         Item?    @relation(fields: [itemId], references: [id])
   product      Product? @relation(fields: [productId], references: [id])
   metal        Metal?   @relation(fields: [metalId], references: [id])
   purityMaster Purity?  @relation(fields: [purityId], references: [id])

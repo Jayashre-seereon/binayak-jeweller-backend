@@ -8,6 +8,7 @@ export const createPurchaseRepo = async (data) => {
       employee: true,
       items: {
         include: {
+          item: true,
           product: true,
           metal: true,
           purityMaster: true,
@@ -29,6 +30,7 @@ export const getPurchasesByStore = async (storeId) => {
       employee: true,
       items: {
         include: {
+          item: true,
           product: true,
           metal: true,
           purityMaster: true,
@@ -54,6 +56,7 @@ export const getPurchaseByIdRepo = async (id) => {
       store: true,
       items: {
         include: {
+          item: true,
           product: true,
           metal: true,
           purityMaster: true,
@@ -76,6 +79,7 @@ export const updatePurchaseRepo = async (id, data) => {
       employee: true,
       items: {
         include: {
+          item: true,
           product: true,
           metal: true,
           purityMaster: true,

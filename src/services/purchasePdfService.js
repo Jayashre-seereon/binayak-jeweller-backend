@@ -118,6 +118,7 @@ export const generatePurchasePdf = async (id, storeId, res) => {
       store: true,
       items: {
         include: {
+          item: true,
           product: true,
           metal: true,
           purityMaster: true,

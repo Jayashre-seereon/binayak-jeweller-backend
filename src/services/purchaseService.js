@@ -8,6 +8,22 @@ import {
   countPurchases
 } from "../repositories/purchaseRepository.js";
 import { generateInvoiceNo } from "../utils/purchaseCodeGenerator.js";
+
+const renamePurchaseItemRelation = (purchase) => {
+  if (!purchase?.items) return purchase;
+
+  return {
+    ...purchase,
+    items: purchase.items.map((purchaseItem) => {
+      const { item, ...rest } = purchaseItem;
+      return {
+        ...rest,
+        item: item || null
+      };
+    })
+  };
+};
+
 export const createPurchase = async (data, storeId) => {
   const numericStoreId = Number(storeId);
 
@@ -102,6 +118,7 @@ export const createPurchase = async (data, storeId) => {
 
   // ===== CHANGED: added new fields inside item mapping =====
   const purchaseItems = data.items.map((item) => ({
+    itemId: item.itemId ? Number(item.itemId) : null,
     productId: item.productId ? Number(item.productId) : null,
     metalId: item.metalId ? Number(item.metalId) : null,
     purityId: item.purityId ? Number(item.purityId) : null,
@@ -202,11 +219,13 @@ export const createPurchase = async (data, storeId) => {
     }
   };
 
-  return await createPurchaseRepo(purchaseData);
+  const purchase = await createPurchaseRepo(purchaseData);
+  return renamePurchaseItemRelation(purchase);
 };
 
 export const getPurchases = async (storeId) => {
-  return await getPurchasesByStore(Number(storeId));
+  const purchases = await getPurchasesByStore(Number(storeId));
+  return purchases.map(renamePurchaseItemRelation);
 };
 
 export const getPurchaseById = async (id, storeId) => {
@@ -220,11 +239,12 @@ export const getPurchaseById = async (id, storeId) => {
     throw new Error("Unauthorized");
   }
 
-  return purchase;
+  return renamePurchaseItemRelation(purchase);
 };
 
 // ===== CHANGED: updatePurchase - added if-blocks for all new fields =====
 export const updatePurchase = async (id, data, storeId) => {
+  const numericStoreId = Number(storeId);
   const purchase = await getPurchaseByIdRepo(Number(id));
 
   if (!purchase) {
@@ -371,6 +391,13 @@ export const updatePurchase = async (id, data, storeId) => {
     }
 
     for (const item of data.items) {
+      if (item.itemId) {
+        const purchaseItem = await prisma.item.findFirst({
+          where: { id: Number(item.itemId), storeId: numericStoreId }
+        });
+        if (!purchaseItem) throw new Error("Item not found for this store");
+      }
+
       if (item.productId) {
         const product = await prisma.product.findFirst({
           where: { id: Number(item.productId), storeId: Number(storeId) }
@@ -408,6 +435,7 @@ export const updatePurchase = async (id, data, storeId) => {
     }
 
     const purchaseItems = data.items.map((item) => ({
+      itemId: item.itemId ? Number(item.itemId) : null,
       productId: item.productId ? Number(item.productId) : null,
       metalId: item.metalId ? Number(item.metalId) : null,
       purityId: item.purityId ? Number(item.purityId) : null,
@@ -453,7 +481,8 @@ export const updatePurchase = async (id, data, storeId) => {
     };
   }
 
-  return await updatePurchaseRepo(Number(id), updateData);
+  const updatedPurchase = await updatePurchaseRepo(Number(id), updateData);
+  return renamePurchaseItemRelation(updatedPurchase);
 };
 
 export const deletePurchase = async (id, storeId) => {

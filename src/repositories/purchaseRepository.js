@@ -53,7 +53,6 @@ export const getPurchaseByIdRepo = async (id) => {
     include: {
       party: true,
       employee: true,
-      store: true,
       items: {
         include: {
           item: true,

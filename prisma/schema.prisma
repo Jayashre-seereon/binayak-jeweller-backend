@@ -44,6 +44,7 @@ model Store {
   partyOpeningBalance PartyOpeningBalance[]
   rateMaster          RateMaster[]
   purchases           Purchase[]
+  inventory           Inventory[]
   storeCounter        StoreCounter?
 }
 
@@ -83,6 +84,7 @@ model Metal {
   rateMaster          RateMaster[]
   purchaseItems       PurchaseItem[]
   partyOpeningBalance PartyOpeningBalance[]
+  inventory           Inventory[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 }
@@ -102,6 +104,7 @@ model Purity {
   grades        Grade[]
   rateMaster    RateMaster[]
   purchaseItems PurchaseItem[]
+  inventory     Inventory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -119,6 +122,7 @@ model Grade {
   store         Store          @relation(fields: [storeId], references: [id])
   rateMaster    RateMaster[]
   purchaseItems PurchaseItem[]
+  inventory     Inventory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -154,6 +158,7 @@ model Product {
   items         Item[]
   purchaseItems PurchaseItem[]
   stones        Stone[]
+  inventory     Inventory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -174,11 +179,11 @@ model Item {
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])
 
-  stones Stone[]
+  stones        Stone[]
   purchaseItems PurchaseItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  inventory     Inventory[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Stone {
@@ -195,6 +200,7 @@ model Stone {
   storeId       Int
   store         Store          @relation(fields: [storeId], references: [id])
   purchaseItems PurchaseItem[]
+  inventory     Inventory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -317,7 +323,7 @@ enum PurchaseType {
 
 model Purchase {
   id           Int          @id @default(autoincrement())
-  invoiceNo    String?       @unique
+  invoiceNo    String?      @unique
   purchaseType PurchaseType
 
   partyId    Int?
@@ -355,73 +361,156 @@ model Purchase {
 
   narration String?
 
-  party    Partymaster?   @relation(fields: [partyId], references: [id])
-  employee Employee?      @relation(fields: [employeeId], references: [id])
-  store    Store          @relation(fields: [storeId], references: [id])
-  items    PurchaseItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  party     Partymaster?   @relation(fields: [partyId], references: [id])
+  employee  Employee?      @relation(fields: [employeeId], references: [id])
+  store     Store          @relation(fields: [storeId], references: [id])
+  items     PurchaseItem[]
+  inventory Inventory[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 }
 
 model PurchaseItem {
-  id         Int  @id @default(autoincrement())
-  purchaseId Int
-  itemId     Int?
-  productId  Int?
-  metalId    Int?
-  purityId   Int?
-  gradeId    Int?
-  stoneId    Int?
+  id               Int     @id @default(autoincrement())
+  purchaseItemCode String? @unique
+  purchaseId       Int
+  itemId           Int?
+  productId        Int?
+  metalId          Int?
+  purityId         Int?
+  gradeId          Int?
+  stoneId          Int?
 
-  pieces Int? @default(1) // ADD - qty count
+  pieces Int? @default(1)
 
   grossWeight Float @default(0)
   stoneWeight Float @default(0)
   netWeight   Float @default(0)
 
   dustWeight      Float @default(0)
-  deductionWeight Float @default(0) // ADD - melting/negotiated loss (OLD)
+  deductionWeight Float @default(0)
 
   pureWeight    Float @default(0)
   actualWeight  Float @default(0)
   balanceWeight Float @default(0)
 
   purity          Float?
-  touchPercentage Float? // ADD - tested purity (OLD)
-  fineness        Float? // ADD - bullion fineness e.g. 999.9
+  touchPercentage Float?
+  fineness        Float?
 
   rate Float @default(0)
 
-  makingCharges     Float @default(0) // ADD
-  wastagePercentage Float @default(0) // ADD
-  hallmarkCharges   Float @default(0) // ADD
+  makingCharges     Float @default(0)
+  wastagePercentage Float @default(0)
+  hallmarkCharges   Float @default(0)
 
   metalAmount Float @default(0)
   stoneAmount Float @default(0)
   otherAmount Float @default(0)
-  discount    Float @default(0) // ADD
+  discount    Float @default(0)
   totalAmount Float @default(0)
 
-  huidNo      String? // ADD - mandatory for hallmarked ornaments
-  tagNo       String? // ADD - stock traceability
-  barSerialNo String? // ADD - bullion bar/coin serial
-  assayCertNo String? // ADD - bullion assay cert
+  huidNo      String?
+  tagNo       String?
+  barSerialNo String?
+  assayCertNo String?
 
   vatType   String?
   narration String?
-  itemPhoto String? // ADD
+  itemPhoto String?
 
-  extraDetails Json? // ADD - type-specific catch-all
+  extraDetails Json?
 
-  purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchase     Purchase    @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  item         Item?       @relation(fields: [itemId], references: [id])
+  product      Product?    @relation(fields: [productId], references: [id])
+  metal        Metal?      @relation(fields: [metalId], references: [id])
+  purityMaster Purity?     @relation(fields: [purityId], references: [id])
+  grade        Grade?      @relation(fields: [gradeId], references: [id])
+  stone        Stone?      @relation(fields: [stoneId], references: [id])
+  inventory    Inventory[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+enum InventoryStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  TRANSFERRED
+  RETURNED
+  MELTED
+  REFINED
+  DAMAGED
+}
+
+model Inventory {
+  id Int @id @default(autoincrement())
+
+  inventoryCode String @unique
+
+  purchaseItemId Int @unique
+  purchaseId     Int
+  storeId        Int
+
+  purchaseType PurchaseType
+
+  itemId    Int?
+  productId Int?
+  metalId   Int?
+  purityId  Int?
+  gradeId   Int?
+  stoneId   Int?
+
+  grossWeight Float @default(0)
+  stoneWeight Float @default(0)
+  netWeight   Float @default(0)
+
+  dustWeight      Float @default(0)
+  deductionWeight Float @default(0)
+
+  pureWeight    Float @default(0)
+  actualWeight  Float @default(0)
+  balanceWeight Float @default(0)
+
+  purity          Float?
+  touchPercentage Float?
+  fineness        Float?
+
+  huidNo      String?
+  tagNo       String?
+  barcodeNo   String?
+  barSerialNo String?
+  assayCertNo String?
+
+  location String?
+  rack     String?
+  box      String?
+
+  status InventoryStatus @default(AVAILABLE)
+
+  itemPhoto    String?
+  narration    String?
+  extraDetails Json?
+
+  purchaseItem PurchaseItem @relation(fields: [purchaseItemId], references: [id])
+  purchase     Purchase     @relation(fields: [purchaseId], references: [id])
+  store        Store        @relation(fields: [storeId], references: [id])
+
   item         Item?    @relation(fields: [itemId], references: [id])
   product      Product? @relation(fields: [productId], references: [id])
   metal        Metal?   @relation(fields: [metalId], references: [id])
   purityMaster Purity?  @relation(fields: [purityId], references: [id])
   grade        Grade?   @relation(fields: [gradeId], references: [id])
   stone        Stone?   @relation(fields: [stoneId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([storeId])
+  @@index([purchaseType])
+  @@index([status])
+  @@index([barcodeNo])
+  @@index([tagNo])
+  @@index([huidNo])
+  @@index([barSerialNo])
 }

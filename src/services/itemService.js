@@ -8,8 +8,6 @@ import {
   deleteItemRepo,
 } from "../repositories/itemRepository.js";
 
-import { generateItemCode } from "../utils/itemCode.js";
-
 // Create Item
 export const createItem = async (data, storeId) => {
   // Check Product
@@ -34,15 +32,8 @@ export const createItem = async (data, storeId) => {
     throw new Error("Design not found");
   }
 
-  // Generate Item Code
- const itemCode = await generateItemCode(
-  product.name,
-  design.name
-);
-
   // Create Item
   return await createItemRepo({
-    itemCode,
     name: data.name,
     description: data.description,
     image: data.image,

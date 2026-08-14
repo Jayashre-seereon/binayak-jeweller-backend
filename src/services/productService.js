@@ -7,8 +7,6 @@ import {
   deleteProductRepo,
 } from "../repositories/productRepository.js";
 
-import { generateProductCode } from "../utils/productCode.js";
-
 export const createProduct = async (data, storeId) => {
 
   const category = await prisma.category.findUnique({
@@ -31,17 +29,6 @@ export const createProduct = async (data, storeId) => {
   if (!metal) {
     throw new Error("Metal not found");
   }
-  const existingProducts = await prisma.product.findMany({
-    where: { storeId: Number(storeId) },
-    select: { productCode: true },
-  });
-
-  const productCode = await generateProductCode(
-    data.name,
-    category.name,
-    metal.name,
-    existingProducts.map((item) => item.productCode)
-  );
 
 
   const product = await prisma.product.create({
@@ -51,8 +38,7 @@ export const createProduct = async (data, storeId) => {
       categoryId: Number(data.categoryId),
       metalId: Number(data.metalId),
       storeId: Number(storeId),
-      image: data.image,
-      productCode
+      image: data.image
     }
   });
 

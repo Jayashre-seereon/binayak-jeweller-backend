@@ -9,18 +9,41 @@ import {
 } from "../repositories/purchaseRepository.js";
 import { generateInvoiceNo } from "../utils/purchaseCodeGenerator.js";
 
-const renamePurchaseItemRelation = (purchase) => {
-  if (!purchase?.items) return purchase;
+const buildPurchaseItemCode = (id) => `PITM-${String(id).padStart(4, "0")}`;
+
+const sanitizePurchaseItem = (purchaseItem) => {
+  const item = purchaseItem?.item || null;
+  const product = purchaseItem?.product || null;
+
+  const { itemCode, ...cleanItem } = item || {};
+  const { productCode, ...cleanProduct } = product || {};
+
+  return {
+    ...purchaseItem,
+    purchaseitemcode: purchaseItem?.purchaseItemCode || buildPurchaseItemCode(purchaseItem.id),
+    itemcode: itemCode || null,
+    item: item ? cleanItem : null,
+    product: product ? cleanProduct : null
+  };
+};
+
+const attachPurchaseItemCodes = async (purchase) => {
+  if (!purchase?.items?.length) return purchase;
+
+  for (const purchaseItem of purchase.items) {
+    if (!purchaseItem.purchaseItemCode) {
+      const purchaseItemCode = buildPurchaseItemCode(purchaseItem.id);
+      await prisma.purchaseItem.update({
+        where: { id: purchaseItem.id },
+        data: { purchaseItemCode }
+      });
+      purchaseItem.purchaseItemCode = purchaseItemCode;
+    }
+  }
 
   return {
     ...purchase,
-    items: purchase.items.map((purchaseItem) => {
-      const { item, ...rest } = purchaseItem;
-      return {
-        ...rest,
-        item: item || null
-      };
-    })
+    items: purchase.items.map(sanitizePurchaseItem)
   };
 };
 
@@ -125,7 +148,7 @@ export const createPurchase = async (data, storeId) => {
     gradeId: item.gradeId ? Number(item.gradeId) : null,
     stoneId: item.stoneId ? Number(item.stoneId) : null,
 
-    pieces: item.pieces ? Number(item.pieces) : 1,                    // NEW
+    pieces: item.pieces ? Number(item.pieces) : null,                    // NEW
 
     grossWeight: Number(item.grossWeight || 0),
     stoneWeight: Number(item.stoneWeight || 0),
@@ -219,13 +242,12 @@ export const createPurchase = async (data, storeId) => {
     }
   };
 
-  const purchase = await createPurchaseRepo(purchaseData);
-  return renamePurchaseItemRelation(purchase);
+  return await attachPurchaseItemCodes(await createPurchaseRepo(purchaseData));
 };
 
 export const getPurchases = async (storeId) => {
   const purchases = await getPurchasesByStore(Number(storeId));
-  return purchases.map(renamePurchaseItemRelation);
+  return await Promise.all(purchases.map((purchase) => attachPurchaseItemCodes(purchase)));
 };
 
 export const getPurchaseById = async (id, storeId) => {
@@ -239,12 +261,11 @@ export const getPurchaseById = async (id, storeId) => {
     throw new Error("Unauthorized");
   }
 
-  return renamePurchaseItemRelation(purchase);
+  return await attachPurchaseItemCodes(purchase);
 };
 
 // ===== CHANGED: updatePurchase - added if-blocks for all new fields =====
 export const updatePurchase = async (id, data, storeId) => {
-  const numericStoreId = Number(storeId);
   const purchase = await getPurchaseByIdRepo(Number(id));
 
   if (!purchase) {
@@ -441,7 +462,7 @@ export const updatePurchase = async (id, data, storeId) => {
       purityId: item.purityId ? Number(item.purityId) : null,
       gradeId: item.gradeId ? Number(item.gradeId) : null,
       stoneId: item.stoneId ? Number(item.stoneId) : null,
-      pieces: item.pieces ? Number(item.pieces) : 1,
+      pieces: item.pieces ? Number(item.pieces) : null,
       grossWeight: Number(item.grossWeight || 0),
       stoneWeight: Number(item.stoneWeight || 0),
       netWeight: Number(item.netWeight || 0),
@@ -481,8 +502,7 @@ export const updatePurchase = async (id, data, storeId) => {
     };
   }
 
-  const updatedPurchase = await updatePurchaseRepo(Number(id), updateData);
-  return renamePurchaseItemRelation(updatedPurchase);
+  return await attachPurchaseItemCodes(await updatePurchaseRepo(Number(id), updateData));
 };
 
 export const deletePurchase = async (id, storeId) => {

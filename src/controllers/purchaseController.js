@@ -108,6 +108,25 @@ export const getPurchaseById = async (req, res) => {
   }
 };
 
+export const getPurchaseItemsByPurchaseId = async (req, res) => {
+  try {
+    const purchaseItems = await purchaseService.getPurchaseItemsByPurchaseId(
+      Number(req.params.id),
+      Number(req.query.storeId)
+    );
+
+    res.json({
+      success: true,
+      purchaseItems
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
 
 
 export const deletePurchase = async (req, res) => {

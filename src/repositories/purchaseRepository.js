@@ -67,6 +67,35 @@ export const getPurchaseByIdRepo = async (id) => {
   });
 };
 
+export const getPurchaseItemsByPurchaseIdRepo = async (purchaseId, storeId) => {
+  return prisma.purchaseItem.findMany({
+    where: {
+      purchaseId: Number(purchaseId),
+      purchase: {
+        storeId: Number(storeId)
+      }
+    },
+    include: {
+      item: true,
+      product: true,
+      metal: true,
+      purityMaster: true,
+      grade: true,
+      stone: true,
+      purchase: {
+        select: {
+          id: true,
+          invoiceNo: true,
+          purchaseType: true
+        }
+      }
+    },
+    orderBy: {
+      id: "asc"
+    }
+  });
+};
+
 export const updatePurchaseRepo = async (id, data) => {
   return prisma.purchase.update({
     where: {

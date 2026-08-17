@@ -5,6 +5,7 @@ import {
   createPurchase,
   getPurchases,
   getPurchaseById,
+  getPurchaseItemsByPurchaseId,
   updatePurchase,
   deletePurchase,
   getPurchaseCount,
@@ -25,6 +26,8 @@ router.post("/create", authMiddleware, purchaseUpload, createPurchase);
 router.get("/get", authMiddleware, getPurchases);
 
 router.get("/getById/:id", authMiddleware, getPurchaseById);
+
+router.get("/itemsByPurchase/:id", authMiddleware, getPurchaseItemsByPurchaseId);
 
 router.put("/update/:id", authMiddleware, purchaseUpload, updatePurchase);
 

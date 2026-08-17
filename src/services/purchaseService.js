@@ -3,6 +3,7 @@ import {
   createPurchaseRepo,
   getPurchasesByStore,
   getPurchaseByIdRepo,
+  getPurchaseItemsByPurchaseIdRepo,
   updatePurchaseRepo,
   deletePurchaseRepo,
   countPurchases
@@ -262,6 +263,25 @@ export const getPurchaseById = async (id, storeId) => {
   }
 
   return await attachPurchaseItemCodes(purchase);
+};
+
+export const getPurchaseItemsByPurchaseId = async (purchaseId, storeId) => {
+  const purchase = await getPurchaseByIdRepo(Number(purchaseId));
+
+  if (!purchase) {
+    throw new Error("Purchase not found");
+  }
+
+  if (purchase.storeId !== Number(storeId)) {
+    throw new Error("Unauthorized");
+  }
+
+  const purchaseItems = await getPurchaseItemsByPurchaseIdRepo(
+    Number(purchaseId),
+    Number(storeId)
+  );
+
+  return purchaseItems.map(sanitizePurchaseItem);
 };
 
 // ===== CHANGED: updatePurchase - added if-blocks for all new fields =====

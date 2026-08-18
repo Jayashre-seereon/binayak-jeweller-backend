@@ -141,7 +141,6 @@ model Design {
 
 model Product {
   id          Int     @id @default(autoincrement())
-  productCode String  @unique
   name        String
   image       String?
   description String?
@@ -165,7 +164,6 @@ model Product {
 
 model Item {
   id          Int     @id @default(autoincrement())
-  itemCode    String  @unique
   name        String
   image       String?
   description String?
@@ -482,10 +480,6 @@ model Inventory {
   barcodeNo   String?
   barSerialNo String?
   assayCertNo String?
-
-  location String?
-  rack     String?
-  box      String?
 
   status InventoryStatus @default(AVAILABLE)
 

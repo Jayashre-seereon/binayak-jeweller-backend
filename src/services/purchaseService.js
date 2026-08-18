@@ -13,18 +13,9 @@ import { generateInvoiceNo } from "../utils/purchaseCodeGenerator.js";
 const buildPurchaseItemCode = (id) => `PITM-${String(id).padStart(4, "0")}`;
 
 const sanitizePurchaseItem = (purchaseItem) => {
-  const item = purchaseItem?.item || null;
-  const product = purchaseItem?.product || null;
-
-  const { itemCode, ...cleanItem } = item || {};
-  const { productCode, ...cleanProduct } = product || {};
-
   return {
     ...purchaseItem,
     purchaseitemcode: purchaseItem?.purchaseItemCode || buildPurchaseItemCode(purchaseItem.id),
-    itemcode: itemCode || null,
-    item: item ? cleanItem : null,
-    product: product ? cleanProduct : null
   };
 };
 
@@ -184,7 +175,6 @@ export const createPurchase = async (data, storeId) => {
     tagNo: item.tagNo || null,                                         // NEW
     barSerialNo: item.barSerialNo || null,                             // NEW
     assayCertNo: item.assayCertNo || null,                             // NEW
-
     vatType: item.vatType || null,
     narration: item.narration || null,
     itemPhoto: item.itemPhoto || null,                                 // NEW
@@ -286,13 +276,15 @@ export const getPurchaseItemsByPurchaseId = async (purchaseId, storeId) => {
 
 // ===== CHANGED: updatePurchase - added if-blocks for all new fields =====
 export const updatePurchase = async (id, data, storeId) => {
+  const numericStoreId = Number(storeId);
+
   const purchase = await getPurchaseByIdRepo(Number(id));
 
   if (!purchase) {
     throw new Error("Purchase not found");
   }
 
-  if (purchase.storeId !== Number(storeId)) {
+  if (purchase.storeId !== numericStoreId) {
     throw new Error("Unauthorized");
   }
 
@@ -311,7 +303,7 @@ export const updatePurchase = async (id, data, storeId) => {
       updateData.partyId = null;
     } else {
       const party = await prisma.partymaster.findFirst({
-        where: { id: Number(data.partyId), storeId: Number(storeId) }
+        where: { id: Number(data.partyId), storeId: numericStoreId }
       });
       if (!party) throw new Error("Party not found for this store");
       updateData.partyId = Number(data.partyId);
@@ -323,7 +315,7 @@ export const updatePurchase = async (id, data, storeId) => {
       updateData.employeeId = null;
     } else {
       const employee = await prisma.employee.findFirst({
-        where: { id: Number(data.employeeId), storeId: Number(storeId) }
+        where: { id: Number(data.employeeId), storeId: numericStoreId }
       });
       if (!employee) throw new Error("Employee not found for this store");
       updateData.employeeId = Number(data.employeeId);
@@ -441,35 +433,35 @@ export const updatePurchase = async (id, data, storeId) => {
 
       if (item.productId) {
         const product = await prisma.product.findFirst({
-          where: { id: Number(item.productId), storeId: Number(storeId) }
+          where: { id: Number(item.productId), storeId: numericStoreId }
         });
         if (!product) throw new Error("Product not found for this store");
       }
 
       if (item.metalId) {
         const metal = await prisma.metal.findFirst({
-          where: { id: Number(item.metalId), storeId: Number(storeId) }
+          where: { id: Number(item.metalId), storeId: numericStoreId }
         });
         if (!metal) throw new Error("Metal not found for this store");
       }
 
       if (item.purityId) {
         const purity = await prisma.purity.findFirst({
-          where: { id: Number(item.purityId), storeId: Number(storeId) }
+          where: { id: Number(item.purityId), storeId: numericStoreId }
         });
         if (!purity) throw new Error("Purity not found for this store");
       }
 
       if (item.gradeId) {
         const grade = await prisma.grade.findFirst({
-          where: { id: Number(item.gradeId), storeId: Number(storeId) }
+          where: { id: Number(item.gradeId), storeId: numericStoreId }
         });
         if (!grade) throw new Error("Grade not found for this store");
       }
 
       if (item.stoneId) {
         const stone = await prisma.stone.findFirst({
-          where: { id: Number(item.stoneId), storeId: Number(storeId) }
+          where: { id: Number(item.stoneId), storeId: numericStoreId }
         });
         if (!stone) throw new Error("Stone not found for this store");
       }

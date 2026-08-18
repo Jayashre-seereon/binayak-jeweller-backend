@@ -110,22 +110,28 @@ export const createInventoryService = async (
   const inventoryCode = await generateInventoryCode();
 
   let tagNo = null;
-  let barcodeNo = null;
+  let barcodeNo = purchaseItem.barcodeNo || null;
 
   if (purchaseType === "ORNAMENT") {
     tagNo = await generateTagNo(purchaseType);
-    barcodeNo = await generateBarcodeNo();
+    if (!barcodeNo) {
+      barcodeNo = await generateBarcodeNo();
+    }
   }
 
   if (purchaseType === "OLD") {
     tagNo = await generateTagNo(purchaseType);
 
     // Barcode is recommended but optional.
-    barcodeNo = await generateBarcodeNo();
+    if (!barcodeNo) {
+      barcodeNo = await generateBarcodeNo();
+    }
   }
 
   if (purchaseType === "BULLION") {
-    barcodeNo = await generateBarcodeNo();
+    if (!barcodeNo) {
+      barcodeNo = await generateBarcodeNo();
+    }
   }
 
   const data = {
@@ -164,10 +170,6 @@ export const createInventoryService = async (
     barcodeNo,
     barSerialNo: purchaseItem.barSerialNo,
     assayCertNo: purchaseItem.assayCertNo,
-
-    location: null,
-    rack: null,
-    box: null,
 
     status: "AVAILABLE",
 
@@ -259,6 +261,13 @@ export const updateInventoryService = async (
   delete data.purchaseId;
   delete data.storeId;
   delete data.purchaseType;
+  delete data.purchaseItemCode;
+  delete data.itemId;
+  delete data.productId;
+  delete data.metalId;
+  delete data.purityId;
+  delete data.gradeId;
+  delete data.stoneId;
 
   const result =
     await inventoryRepo.updateInventoryRepo(

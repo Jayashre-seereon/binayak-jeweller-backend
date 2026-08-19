@@ -1,4 +1,5 @@
 import * as inventoryService from "../services/inventoryService.js";
+import * as inventoryLabelPdfService from "../services/inventoryLabelPdfService.js";
 
 export const createInventory = async (req, res) => {
   try {
@@ -216,6 +217,33 @@ export const deleteInventory = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete inventory error:", error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const printInventoryLabel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { storeId } = req.query;
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: "storeId is required",
+      });
+    }
+
+    await inventoryLabelPdfService.generateInventoryLabelPdf(
+      id,
+      Number(storeId),
+      res
+    );
+  } catch (error) {
+    console.error("Print inventory label error:", error);
 
     return res.status(400).json({
       success: false,

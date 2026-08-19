@@ -172,7 +172,6 @@ export const createPurchase = async (data, storeId) => {
     totalAmount: Number(item.totalAmount || 0),
 
     huidNo: item.huidNo || null,                                       // NEW
-    tagNo: item.tagNo || null,                                         // NEW
     barSerialNo: item.barSerialNo || null,                             // NEW
     assayCertNo: item.assayCertNo || null,                             // NEW
     vatType: item.vatType || null,
@@ -499,7 +498,6 @@ export const updatePurchase = async (id, data, storeId) => {
       discount: Number(item.discount || 0),
       totalAmount: Number(item.totalAmount || 0),
       huidNo: item.huidNo || null,
-      tagNo: item.tagNo || null,
       barSerialNo: item.barSerialNo || null,
       assayCertNo: item.assayCertNo || null,
       vatType: item.vatType || null,

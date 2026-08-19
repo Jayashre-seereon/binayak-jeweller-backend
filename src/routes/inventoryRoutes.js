@@ -6,6 +6,7 @@ import {
   getInventoryById,
   updateInventory,
   updateInventoryStatus,
+  printInventoryLabel,
   deleteInventory,
 } from "../controllers/inventoryController.js";
 
@@ -18,6 +19,8 @@ router.post("/create", authMiddleware, createInventory);
 router.get("/get", authMiddleware, getInventories);
 
 router.get("/getById/:id", authMiddleware, getInventoryById);
+
+router.get("/label/:id", authMiddleware, printInventoryLabel);
 
 router.put("/update/:id", authMiddleware, updateInventory);
 

@@ -16,42 +16,55 @@ const generateInventoryCode = async () => {
   return `INV-${String(nextNumber).padStart(6, "0")}`;
 };
 
-const generateBarcodeNo = async () => {
-  const lastInventory = await prisma.inventory.findFirst({
-    where: {
-      barcodeNo: {
-        not: null,
-      },
-    },
-    orderBy: {
-      id: "desc",
-    },
-    select: {
-      id: true,
-    },
-  });
+const extractSequenceNumber = (value, prefix) => {
+  if (!value) return 0;
+  const normalized = value.toString().trim();
 
-  const nextNumber = (lastInventory?.id || 0) + 1;
+  if (prefix) {
+    const match = normalized.match(new RegExp(`^${prefix}-(\\d+)$`, "i"));
+    return match ? Number(match[1]) : 0;
+  }
 
-  return `890000${String(nextNumber).padStart(6, "0")}`;
+  const match = normalized.match(/(\d+)$/);
+  return match ? Number(match[1]) : 0;
 };
 
-const generateTagNo = async (purchaseType) => {
+const getNextInventorySequence = async (storeId) => {
   const lastInventory = await prisma.inventory.findFirst({
     where: {
-      tagNo: {
-        not: null,
-      },
+      storeId: Number(storeId),
+      OR: [
+        {
+          tagNo: {
+            not: null,
+          },
+        },
+        {
+          barcodeNo: {
+            not: null,
+          },
+        },
+      ],
     },
     orderBy: {
       id: "desc",
     },
     select: {
-      id: true,
+      tagNo: true,
+      barcodeNo: true,
     },
   });
 
-  const nextNumber = (lastInventory?.id || 0) + 1;
+  return Math.max(
+    extractSequenceNumber(lastInventory?.tagNo, "TAG"),
+    extractSequenceNumber(lastInventory?.tagNo, "OLD"),
+    extractSequenceNumber(lastInventory?.tagNo, "BUL"),
+    extractSequenceNumber(lastInventory?.barcodeNo)
+  ) + 1;
+};
+
+const generateTagNo = async (storeId, purchaseType) => {
+  const nextNumber = await getNextInventorySequence(storeId);
 
   let prefix = "TAG";
 
@@ -64,6 +77,12 @@ const generateTagNo = async (purchaseType) => {
   }
 
   return `${prefix}-${String(nextNumber).padStart(6, "0")}`;
+};
+
+const generateBarcodeNo = async (storeId, sequenceNumber) => {
+  const nextNumber = sequenceNumber ?? (await getNextInventorySequence(storeId));
+
+  return `890000${String(nextNumber).padStart(6, "0")}`;
 };
 
 export const createInventoryService = async (
@@ -110,29 +129,14 @@ export const createInventoryService = async (
   const inventoryCode = await generateInventoryCode();
 
   let tagNo = null;
-  let barcodeNo = purchaseItem.barcodeNo || null;
+  const nextSequence = await getNextInventorySequence(storeId);
 
-  if (purchaseType === "ORNAMENT") {
-    tagNo = await generateTagNo(purchaseType);
-    if (!barcodeNo) {
-      barcodeNo = await generateBarcodeNo();
-    }
+  // Inventory tag numbers are generated per inventory record, not copied from purchase data.
+  if (purchaseType === "ORNAMENT" || purchaseType === "OLD" || purchaseType === "BULLION") {
+    tagNo = await generateTagNo(storeId, purchaseType);
   }
 
-  if (purchaseType === "OLD") {
-    tagNo = await generateTagNo(purchaseType);
-
-    // Barcode is recommended but optional.
-    if (!barcodeNo) {
-      barcodeNo = await generateBarcodeNo();
-    }
-  }
-
-  if (purchaseType === "BULLION") {
-    if (!barcodeNo) {
-      barcodeNo = await generateBarcodeNo();
-    }
-  }
+  const barcodeNo = await generateBarcodeNo(storeId, nextSequence);
 
   const data = {
     inventoryCode,

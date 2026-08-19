@@ -208,40 +208,6 @@ export const getInventoryByIdService = async (
   return inventory;
 };
 
-export const getInventoryByBarcodeService = async (
-  barcodeNo,
-  storeId
-) => {
-  const inventory =
-    await inventoryRepo.getInventoryByBarcodeRepo(
-      barcodeNo,
-      Number(storeId)
-    );
-
-  if (!inventory) {
-    throw new Error("Inventory not found");
-  }
-
-  return inventory;
-};
-
-export const getInventoryByTagService = async (
-  tagNo,
-  storeId
-) => {
-  const inventory =
-    await inventoryRepo.getInventoryByTagRepo(
-      tagNo,
-      Number(storeId)
-    );
-
-  if (!inventory) {
-    throw new Error("Inventory not found");
-  }
-
-  return inventory;
-};
-
 export const updateInventoryService = async (
   id,
   storeId,

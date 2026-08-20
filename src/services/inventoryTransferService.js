@@ -268,6 +268,19 @@ export const updateTransferService = async ({
     ...new Set(inventoryIds.map(Number)),
   ];
 
+  const oldInventoryIds = transfer.items.map(
+    (item) => item.inventoryId
+  );
+  const oldInventoryIdSet = new Set(
+    oldInventoryIds.map(Number)
+  );
+  const oldInventoryIdsToRelease = oldInventoryIds.filter(
+    (inventoryId) => !uniqueInventoryIds.includes(Number(inventoryId))
+  );
+  const newInventoryIds = uniqueInventoryIds.filter(
+    (inventoryId) => !oldInventoryIdSet.has(inventoryId)
+  );
+
   // Make sure inventory belongs to source store
   const inventories =
     await transferRepo.getInventoryForTransferRepo(
@@ -286,6 +299,7 @@ export const updateTransferService = async ({
 
   const invalidInventory = inventories.find(
     (inventory) =>
+      !oldInventoryIdSet.has(Number(inventory.id)) &&
       inventory.status !== "AVAILABLE"
   );
 
@@ -294,10 +308,6 @@ export const updateTransferService = async ({
       `Inventory ${invalidInventory.inventoryCode} is not available`
     );
   }
-
-  const oldInventoryIds = transfer.items.map(
-    (item) => item.inventoryId
-  );
 
   return await prisma.$transaction(async (tx) => {
 
@@ -331,21 +341,23 @@ export const updateTransferService = async ({
       },
     });
 
-    if (oldInventoryIds.length > 0) {
+    if (oldInventoryIdsToRelease.length > 0) {
       await transferRepo.updateInventoryStatusRepo(
         tx,
-        oldInventoryIds,
+        oldInventoryIdsToRelease,
         "AVAILABLE",
         fromStoreId
       );
     }
 
-    await transferRepo.updateInventoryStatusRepo(
-      tx,
-      uniqueInventoryIds,
-      "PENDING",
-      fromStoreId
-    );
+    if (newInventoryIds.length > 0) {
+      await transferRepo.updateInventoryStatusRepo(
+        tx,
+        newInventoryIds,
+        "PENDING",
+        fromStoreId
+      );
+    }
 
     return await transferRepo.getTransferByIdRepo(
       transferId

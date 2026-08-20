@@ -46,6 +46,8 @@ model Store {
   purchases           Purchase[]
   inventory           Inventory[]
   storeCounter        StoreCounter?
+  transfersFrom       InventoryTransfer[]   @relation("TransferFromStore")
+  transfersTo         InventoryTransfer[]   @relation("TransferToStore")
 }
 
 model Brand {
@@ -234,11 +236,12 @@ model Employee {
 }
 
 model StoreCounter {
-  id                Int   @id @default(autoincrement())
-  storeId           Int   @unique
-  lastEmpNumber     Int   @default(0)
-  lastInvoiceNumber Int   @default(0)
-  store             Store @relation(fields: [storeId], references: [id])
+  id                 Int   @id @default(autoincrement())
+  storeId            Int   @unique
+  lastEmpNumber      Int   @default(0)
+  lastInvoiceNumber  Int   @default(0)
+  lastTransferNumber Int   @default(0)
+  store              Store @relation(fields: [storeId], references: [id])
 }
 
 model Partytype {
@@ -435,11 +438,17 @@ enum InventoryStatus {
   AVAILABLE
   RESERVED
   SOLD
+  PENDING
   TRANSFERRED
   RETURNED
   MELTED
   REFINED
   DAMAGED
+}
+
+enum InventoryTransferStatus {
+  PENDING
+  RECEIVED
 }
 
 model Inventory {
@@ -491,14 +500,15 @@ model Inventory {
   purchase     Purchase     @relation(fields: [purchaseId], references: [id])
   store        Store        @relation(fields: [storeId], references: [id])
 
-  item         Item?    @relation(fields: [itemId], references: [id])
-  product      Product? @relation(fields: [productId], references: [id])
-  metal        Metal?   @relation(fields: [metalId], references: [id])
-  purityMaster Purity?  @relation(fields: [purityId], references: [id])
-  grade        Grade?   @relation(fields: [gradeId], references: [id])
-  stone        Stone?   @relation(fields: [stoneId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  item          Item?                   @relation(fields: [itemId], references: [id])
+  product       Product?                @relation(fields: [productId], references: [id])
+  metal         Metal?                  @relation(fields: [metalId], references: [id])
+  purityMaster  Purity?                 @relation(fields: [purityId], references: [id])
+  grade         Grade?                  @relation(fields: [gradeId], references: [id])
+  stone         Stone?                  @relation(fields: [stoneId], references: [id])
+  transferItems InventoryTransferItem[]
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
 
   @@index([storeId])
   @@index([purchaseType])
@@ -507,4 +517,47 @@ model Inventory {
   @@index([tagNo])
   @@index([huidNo])
   @@index([barSerialNo])
+}
+
+model InventoryTransfer {
+  id         Int    @id @default(autoincrement())
+  transferNo String @unique
+
+  fromStoreId Int
+  toStoreId   Int
+
+  transferDate DateTime  @default(now())
+  receivedDate DateTime?
+
+  status InventoryTransferStatus @default(PENDING)
+
+  narration String?
+
+  fromStore Store @relation("TransferFromStore", fields: [fromStoreId], references: [id])
+  toStore   Store @relation("TransferToStore", fields: [toStoreId], references: [id])
+
+  items InventoryTransferItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromStoreId])
+  @@index([toStoreId])
+  @@index([status])
+}
+
+model InventoryTransferItem {
+  id Int @id @default(autoincrement())
+
+  transferId  Int
+  inventoryId Int
+
+  transfer  InventoryTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  inventory Inventory         @relation(fields: [inventoryId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([transferId, inventoryId])
+  @@index([transferId])
+  @@index([inventoryId])
 }

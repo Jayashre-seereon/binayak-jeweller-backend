@@ -85,6 +85,8 @@ const generateBarcodeNo = async (storeId, sequenceNumber) => {
   return `890000${String(nextNumber).padStart(6, "0")}`;
 };
 
+const asString = (value) => (value === null || value === undefined ? null : String(value));
+
 export const createInventoryService = async (
   purchaseItemId,
   storeId
@@ -169,11 +171,11 @@ export const createInventoryService = async (
     touchPercentage: purchaseItem.touchPercentage,
     fineness: purchaseItem.fineness,
 
-    huidNo: purchaseItem.huidNo,
-    tagNo,
-    barcodeNo,
-    barSerialNo: purchaseItem.barSerialNo,
-    assayCertNo: purchaseItem.assayCertNo,
+    huidNo: asString(purchaseItem.huidNo),
+    tagNo: asString(tagNo),
+    barcodeNo: asString(barcodeNo),
+    barSerialNo: asString(purchaseItem.barSerialNo),
+    assayCertNo: asString(purchaseItem.assayCertNo),
 
     status: "AVAILABLE",
 

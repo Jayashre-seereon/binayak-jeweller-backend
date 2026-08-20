@@ -11,6 +11,10 @@ const COLORS = {
 };
 
 const formatWeight = (value) => `${Number(value || 0).toFixed(3)} g`;
+const formatText = (value, fallback = "-") =>
+  value === null || value === undefined || value === "" ? fallback : String(value);
+const formatName = (entity, fallbackValue = "-") =>
+  formatText(entity?.name || entity?.title || entity?.metalName || entity?.purityName || fallbackValue);
 
 const drawBarcode = (doc, value, x, y, width, height) => {
   const digits = String(value || "").replace(/\D/g, "");
@@ -48,6 +52,8 @@ export const generateInventoryLabelPdf = async (id, storeId, res) => {
       store: true,
       product: true,
       item: true,
+      metal: true,
+      purityMaster: true,
       purchase: true,
       purchaseItem: true,
     },
@@ -95,37 +101,58 @@ export const generateInventoryLabelPdf = async (id, storeId, res) => {
     .font("Helvetica-Bold")
     .fontSize(8.5)
     .fillColor(COLORS.ink)
-    .text(`TAG: ${inventory.tagNo || "-"}`, 16, y, {
+    .text(`TAG NO: ${formatText(inventory.tagNo)}`, 16, y, {
       width: labelWidth - 16,
       align: "left",
     });
 
   y += 14;
 
-  if (inventory.huidNo) {
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(8.5)
-      .fillColor(COLORS.slate)
-      .text(`HUID: ${inventory.huidNo}`, 16, y, {
-        width: labelWidth - 16,
-        align: "left",
-      });
-    y += 18;
-  }
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(8.5)
+    .fillColor(COLORS.ink)
+    .text(`METAL: ${formatName(inventory.metal)}`, 16, y, {
+      width: labelWidth - 16,
+      align: "left",
+    });
+
+  y += 14;
 
   doc
     .font("Helvetica-Bold")
     .fontSize(8.5)
     .fillColor(COLORS.ink)
-    .text(`Wt: ${formatWeight(inventory.netWeight || inventory.grossWeight)}`, 16, y, {
+    .text(`PURITY: ${formatName(inventory.purityMaster, formatText(inventory.purity))}`, 16, y, {
       width: labelWidth - 16,
       align: "left",
     });
 
-  y += 24;
+  y += 14;
 
-  drawBarcode(doc, inventory.barcodeNo || inventory.inventoryCode, 18, y, labelWidth - 20, 20);
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(8.5)
+    .fillColor(COLORS.slate)
+    .text(`WEIGHT: ${formatWeight(inventory.netWeight || inventory.grossWeight)}`, 16, y, {
+      width: labelWidth - 16,
+      align: "left",
+    });
+
+  y += 14;
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(8.5)
+    .fillColor(COLORS.slate)
+    .text(`HUID: ${formatText(inventory.huidNo)}`, 16, y, {
+      width: labelWidth - 16,
+      align: "left",
+    });
+
+  y += 18;
+
+  drawBarcode(doc, formatText(inventory.barcodeNo || inventory.inventoryCode, ""), 18, y, labelWidth - 20, 20);
 
   y += 24;
 
@@ -133,7 +160,7 @@ export const generateInventoryLabelPdf = async (id, storeId, res) => {
     .font("Helvetica")
     .fontSize(8.5)
     .fillColor(COLORS.ink)
-    .text(inventory.barcodeNo || inventory.inventoryCode || "-", 16, y, {
+    .text(formatText(inventory.barcodeNo || inventory.inventoryCode), 16, y, {
       width: labelWidth - 16,
       align: "center",
     });

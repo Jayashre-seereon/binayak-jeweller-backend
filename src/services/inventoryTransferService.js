@@ -28,7 +28,7 @@ const generateTransferNo = async (tx, storeId) => {
     },
   });
 
-  return `TRF-${String(counter.lastTransferNumber).padStart(6, "0")}`;
+  return `TRF-${String(counter.lastTransferNumber).padStart(6, "0")}-S${String(storeId)}`;
 };
 
 

@@ -86,6 +86,25 @@ export const getInventoryByIdRepo = async (id, storeId) => {
   });
 };
 
+export const getInventoryByBarcodeRepo = async (barcodeNo, storeId) => {
+  return prisma.inventory.findFirst({
+    where: {
+      barcodeNo: String(barcodeNo),
+      storeId: Number(storeId),
+    },
+    include: {
+      purchase: true,
+      purchaseItem: true,
+      item: true,
+      product: true,
+      metal: true,
+      purityMaster: true,
+      grade: true,
+      stone: true,
+    },
+  });
+};
+
 export const updateInventoryRepo = async (id, storeId, data) => {
   return prisma.inventory.updateMany({
     where: {

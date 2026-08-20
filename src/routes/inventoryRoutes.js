@@ -4,6 +4,7 @@ import {
   createInventory,
   getInventories,
   getInventoryById,
+  getInventoryByBarcode,
   updateInventory,
   updateInventoryStatus,
   printInventoryLabel,
@@ -19,6 +20,7 @@ router.post("/create", authMiddleware, createInventory);
 router.get("/get", authMiddleware, getInventories);
 
 router.get("/getById/:id", authMiddleware, getInventoryById);
+router.get("/getByBarcode/:barcodeNo", authMiddleware, getInventoryByBarcode);
 
 router.get("/label/:id", authMiddleware, printInventoryLabel);
 

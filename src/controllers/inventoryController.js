@@ -118,6 +118,44 @@ export const getInventoryById = async (req, res) => {
   }
 };
 
+export const getInventoryByBarcode = async (req, res) => {
+  try {
+    const { barcodeNo } = req.params;
+    const { storeId } = req.query;
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: "storeId is required",
+      });
+    }
+
+    if (!barcodeNo) {
+      return res.status(400).json({
+        success: false,
+        message: "barcodeNo is required",
+      });
+    }
+
+    const inventory = await inventoryService.getInventoryByBarcodeService(
+      barcodeNo,
+      Number(storeId)
+    );
+
+    return res.status(200).json({
+      success: true,
+      inventory,
+    });
+  } catch (error) {
+    console.error("Get inventory by barcode error:", error);
+
+    return res.status(404).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const updateInventory = async (req, res) => {
   try {
     const { id } = req.params;

@@ -147,7 +147,7 @@ export const createTransferService = async ({
         fromStoreId
       );
 
-    const transfer =
+  const transfer =
       await transferRepo.createTransferRepo(
         tx,
         {
@@ -170,6 +170,13 @@ export const createTransferService = async ({
           },
         }
       );
+
+    await transferRepo.updateInventoryStatusRepo(
+      tx,
+      uniqueInventoryIds,
+      "PENDING",
+      fromStoreId
+    );
 
     return transfer;
   });
@@ -288,6 +295,10 @@ export const updateTransferService = async ({
     );
   }
 
+  const oldInventoryIds = transfer.items.map(
+    (item) => item.inventoryId
+  );
+
   return await prisma.$transaction(async (tx) => {
 
     // Remove old transfer items
@@ -319,6 +330,22 @@ export const updateTransferService = async ({
         },
       },
     });
+
+    if (oldInventoryIds.length > 0) {
+      await transferRepo.updateInventoryStatusRepo(
+        tx,
+        oldInventoryIds,
+        "AVAILABLE",
+        fromStoreId
+      );
+    }
+
+    await transferRepo.updateInventoryStatusRepo(
+      tx,
+      uniqueInventoryIds,
+      "PENDING",
+      fromStoreId
+    );
 
     return await transferRepo.getTransferByIdRepo(
       transferId
@@ -378,6 +405,56 @@ export const receiveTransferService = async ({
     );
 
     // 3. GET UPDATED TRANSFER
+    return await transferRepo.getTransferByIdRepo(
+      transferId
+    );
+  });
+};
+
+export const cancelTransferService = async ({
+  transferId,
+  storeId,
+}) => {
+  const transfer =
+    await transferRepo.getTransferByIdRepo(transferId);
+
+  if (!transfer) {
+    throw new Error("Inventory transfer not found");
+  }
+
+  if (
+    Number(transfer.fromStoreId) !== Number(storeId) &&
+    Number(transfer.toStoreId) !== Number(storeId)
+  ) {
+    throw new Error(
+      "You are not authorized to cancel this transfer"
+    );
+  }
+
+  if (transfer.status !== "PENDING") {
+    throw new Error(
+      `Transfer cannot be cancelled from ${transfer.status} status`
+    );
+  }
+
+  const inventoryIds = transfer.items.map(
+    (item) => item.inventoryId
+  );
+
+  return await prisma.$transaction(async (tx) => {
+    await transferRepo.updateInventoryStatusRepo(
+      tx,
+      inventoryIds,
+      "AVAILABLE",
+      transfer.fromStoreId
+    );
+
+    await transferRepo.updateTransferStatusRepo(
+      tx,
+      transferId,
+      "CANCELLED"
+    );
+
     return await transferRepo.getTransferByIdRepo(
       transferId
     );

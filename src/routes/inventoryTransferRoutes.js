@@ -4,6 +4,7 @@ import {
   createInventoryTransfer,
   getInventoryTransfers,
   getInventoryTransferById,
+  cancelInventoryTransfer,
   receiveInventoryTransfer,
   updateInventoryTransfer,
 } from "../controllers/inventoryTransferController.js";
@@ -45,6 +46,13 @@ router.put(
   "/receive/:id",
   authMiddleware,
   receiveInventoryTransfer
+);
+
+// Cancel transfer → PENDING → CANCELLED
+router.put(
+  "/cancel/:id",
+  authMiddleware,
+  cancelInventoryTransfer
 );
 
 export default router;

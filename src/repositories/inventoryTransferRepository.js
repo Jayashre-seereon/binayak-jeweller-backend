@@ -136,6 +136,29 @@ export const updateTransferStatusRepo = async (
   });
 };
 
+export const updateInventoryStatusRepo = async (
+  tx,
+  inventoryIds,
+  status,
+  storeId = undefined
+) => {
+  return tx.inventory.updateMany({
+    where: {
+      id: {
+        in: inventoryIds.map(Number),
+      },
+      ...(storeId !== undefined
+        ? {
+            storeId: Number(storeId),
+          }
+        : {}),
+    },
+    data: {
+      status,
+    },
+  });
+};
+
 
 
 export const receiveInventoryRepo = async (

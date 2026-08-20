@@ -449,6 +449,7 @@ enum InventoryStatus {
 enum InventoryTransferStatus {
   PENDING
   RECEIVED
+  CANCELLED
 }
 
 model Inventory {

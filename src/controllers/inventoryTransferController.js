@@ -258,5 +258,49 @@ export const receiveInventoryTransfer = async (
   }
 };
 
+export const cancelInventoryTransfer = async (
+  req,
+  res
+) => {
+  try {
+    const { id } = req.params;
+
+    let storeId;
+
+    if (req.user.role === "STORE") {
+      storeId = getUserStoreId(req);
+    } else if (req.user.role === "ADMIN") {
+      storeId = Number(req.body.storeId);
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    const transfer =
+      await transferService.cancelTransferService({
+        transferId: Number(id),
+        storeId,
+      });
+
+    return res.status(200).json({
+      success: true,
+      message: "Inventory transfer cancelled successfully",
+      transfer,
+    });
+  } catch (error) {
+    console.error(
+      "Cancel inventory transfer error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 
 

@@ -283,8 +283,6 @@ export const updateInventoryStatusService = async (
     "AVAILABLE",
     "RESERVED",
     "SOLD",
-    "TRANSFERRED",
-    "RETURNED",
     "MELTED",
     "REFINED",
     "DAMAGED",

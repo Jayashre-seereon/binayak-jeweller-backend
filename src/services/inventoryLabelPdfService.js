@@ -1,8 +1,9 @@
 import PDFDocument from "pdfkit";
+import bwipjs from "bwip-js";
 import prisma from "../config/db.js";
 
-const PAGE_WIDTH = 220;
-const PAGE_HEIGHT = 65;
+const PAGE_WIDTH = 100;
+const PAGE_HEIGHT = 70;
 
 const COLORS = {
   ink: "#111111",
@@ -15,43 +16,27 @@ const formatText = (value, fallback = "-") =>
     ? fallback
     : String(value);
 
-const drawBarcode = (doc, value, x, y, width, height) => {
-  const digits = String(value || "").replace(/\D/g, "");
+const drawBarcode = async (doc, value, x, y, width, height) => {
+  const text = String(value || "").trim();
 
-  if (!digits) return;
+  if (!text) return;
 
-  const bars = [];
+  const barcodeBuffer = await bwipjs.toBuffer({
+    bcid: "code128",
+    text,
+    scale: 2,
+    height: Math.max(8, Math.round(height * 0.8)),
+    includetext: false,
+    paddingwidth: 0,
+    paddingheight: 0,
+    backgroundcolor: "FFFFFF",
+    barcolor: "111111",
+  });
 
-  let seed = 7;
-
-  for (const ch of digits) {
-    seed = (seed * 31 + Number(ch)) % 9973;
-
-    bars.push(
-      ...[1, 2, 1, 1, 2, 1, 2].map((n, i) =>
-        (seed >> i) & 1 ? n + 1 : n
-      )
-    );
-  }
-
-  const totalUnits = bars.reduce((sum, n) => sum + n, 0);
-
-  const unit = width / totalUnits;
-
-  let currentX = x;
-  let black = true;
-
-  bars.forEach((barUnits) => {
-    const barWidth = barUnits * unit;
-
-    if (black) {
-      doc
-        .rect(currentX, y, barWidth, height)
-        .fill(COLORS.ink);
-    }
-
-    currentX += barWidth;
-    black = !black;
+  doc.image(barcodeBuffer, x, y, {
+    fit: [width, height],
+    align: "center",
+    valign: "center",
   });
 };
 
@@ -125,14 +110,14 @@ export const generateInventoryLabelPdf = async (id, storeId, res) => {
   // Move barcode closer to top
   const barcodeY = 17;
 
-  drawBarcode(
-    doc,
-    barcode,
-    10,
-    barcodeY,
-    labelWidth - 12,
-    22
-  );
+ await drawBarcode(
+  doc,
+  barcode,
+  6,
+  barcodeY,
+  labelWidth - 12,
+  22
+);
 
   // Barcode number
   doc

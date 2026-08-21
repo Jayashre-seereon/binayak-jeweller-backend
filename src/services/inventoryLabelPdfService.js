@@ -3,18 +3,27 @@ import bwipjs from "bwip-js";
 import prisma from "../config/db.js";
 import * as inventoryRepo from "../repositories/inventoryRepository.js";
 
+/* =========================================================
+   LABEL SIZE
+========================================================= */
+
 const SINGLE_PAGE_WIDTH = 100;
 const SINGLE_PAGE_HEIGHT = 70;
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
 
-// A4 bulk layout
+/* =========================================================
+   BULK A4 LAYOUT
+   EACH LABEL = 100 × 70
+========================================================= */
+
 const LABEL_WIDTH = 100;
 const LABEL_HEIGHT = 70;
 
-const GAP_X = 8;
-const GAP_Y = 2;
+// Reduced gap between labels
+const GAP_X = 4;
+const GAP_Y = 1;
 
 const COLS = 5;
 const ROWS = 11;
@@ -23,8 +32,11 @@ const LABELS_PER_PAGE = COLS * ROWS;
 
 const COLORS = {
   ink: "#111111",
-  border: "#111111",
 };
+
+/* =========================================================
+   FORMAT TEXT
+========================================================= */
 
 const formatText = (value, fallback = "-") =>
   value === null || value === undefined || value === ""
@@ -85,6 +97,7 @@ const drawBarcode = async (
 /* =========================================================
    SINGLE LABEL
    SIZE = 100 × 70
+   NO BORDER
 ========================================================= */
 
 const renderSingleLabel = async (
@@ -95,42 +108,55 @@ const renderSingleLabel = async (
   boxWidth,
   boxHeight
 ) => {
-  // Border
-  doc
-    .lineWidth(1)
-    .rect(boxX, boxY, boxWidth, boxHeight)
-    .stroke(COLORS.border);
-
   const barcode = formatText(
     inventory.barcodeNo || inventory.inventoryCode,
     ""
   );
 
-  // Barcode
-  const barcodeY = boxY + 13;
-  const barcodeWidth = boxWidth - 12;
-  const barcodeHeight = 22;
+  if (!barcode) return;
+
+  /*
+    Reduced empty space on all 4 sides.
+
+    Left  = 2
+    Right = 2
+    Top   = 5
+    Bottom has remaining space
+  */
+
+  const barcodeX = boxX + 2;
+  const barcodeY = boxY + 5;
+
+  const barcodeWidth = boxWidth - 4;
+  const barcodeHeight = 32;
+
+  /* =====================================================
+     BARCODE
+  ===================================================== */
 
   await drawBarcode(
     doc,
     barcode,
-    boxX + 6,
+    barcodeX,
     barcodeY,
     barcodeWidth,
     barcodeHeight
   );
 
-  // Barcode number
+  /* =====================================================
+     BARCODE NUMBER
+  ===================================================== */
+
   doc
     .font("Helvetica")
     .fontSize(8)
     .fillColor(COLORS.ink)
     .text(
       barcode,
-      boxX + 4,
-      barcodeY + 24,
+      boxX + 2,
+      barcodeY + 34,
       {
-        width: boxWidth - 8,
+        width: boxWidth - 4,
         align: "center",
         lineBreak: false,
       }
@@ -168,6 +194,10 @@ export const generateInventoryLabelPdf = async (
     throw new Error("Inventory not found");
   }
 
+  /* =====================================================
+     CREATE SINGLE LABEL PDF
+  ===================================================== */
+
   const doc = new PDFDocument({
     size: [
       SINGLE_PAGE_WIDTH,
@@ -175,12 +205,16 @@ export const generateInventoryLabelPdf = async (
     ],
 
     margins: {
-      top: 2,
-      bottom: 2,
-      left: 4,
-      right: 4,
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
     },
   });
+
+  /* =====================================================
+     RESPONSE HEADERS
+  ===================================================== */
 
   res.setHeader(
     "Content-Type",
@@ -198,19 +232,19 @@ export const generateInventoryLabelPdf = async (
 
   doc.pipe(res);
 
-  const labelWidth =
-    SINGLE_PAGE_WIDTH - 8;
+  /* =====================================================
+     LABEL AREA
 
-  const labelHeight =
-    SINGLE_PAGE_HEIGHT - 8;
+     FULL PAGE = 100 × 70
+  ===================================================== */
 
   await renderSingleLabel(
     doc,
     inventory,
-    4,
-    4,
-    labelWidth,
-    labelHeight
+    0,
+    0,
+    SINGLE_PAGE_WIDTH,
+    SINGLE_PAGE_HEIGHT
   );
 
   doc.end();
@@ -224,7 +258,10 @@ const normalizeLabelRequest = (payload = {}) => {
   const ids = [];
   const barcodeNos = [];
 
-  // Inventory IDs
+  /* =====================================================
+     INVENTORY IDS
+  ===================================================== */
+
   for (const value of [
     payload.ids,
     payload.inventoryIds,
@@ -236,7 +273,10 @@ const normalizeLabelRequest = (payload = {}) => {
     }
   }
 
-  // Barcode numbers
+  /* =====================================================
+     BARCODE NUMBERS
+  ===================================================== */
+
   for (const value of [
     payload.barcodeNos,
     payload.barcodes,
@@ -247,7 +287,10 @@ const normalizeLabelRequest = (payload = {}) => {
     }
   }
 
-  // Single ID
+  /* =====================================================
+     SINGLE ID
+  ===================================================== */
+
   if (
     payload.id !== undefined &&
     payload.id !== null
@@ -255,7 +298,10 @@ const normalizeLabelRequest = (payload = {}) => {
     ids.push(payload.id);
   }
 
-  // Single barcode
+  /* =====================================================
+     SINGLE BARCODE
+  ===================================================== */
+
   if (
     payload.barcodeNo !== undefined &&
     payload.barcodeNo !== null
@@ -285,6 +331,7 @@ const normalizeLabelRequest = (payload = {}) => {
 /* =========================================================
    BULK LABEL
    SAME SIZE = 100 × 70
+   NO BORDER
 ========================================================= */
 
 const renderBulkLabel = async (
@@ -295,50 +342,55 @@ const renderBulkLabel = async (
   cellWidth,
   cellHeight
 ) => {
-  // Border
-  doc
-    .lineWidth(0.8)
-    .rect(
-      cellX,
-      cellY,
-      cellWidth,
-      cellHeight
-    )
-    .stroke(COLORS.border);
-
   const barcode = formatText(
     inventory.barcodeNo ||
       inventory.inventoryCode,
     ""
   );
 
-  // Same barcode dimensions as single label
-  const barcodeWidth =
-    cellWidth - 12;
+  if (!barcode) return;
 
-  const barcodeHeight = 22;
+  /*
+    Reduced empty space:
 
-  // Barcode
+    Left  = 2
+    Right = 2
+    Top   = 5
+  */
+
+  const barcodeX = cellX + 2;
+  const barcodeY = cellY + 5;
+
+  const barcodeWidth = cellWidth - 4;
+  const barcodeHeight = 32;
+
+  /* =====================================================
+     BARCODE
+  ===================================================== */
+
   await drawBarcode(
     doc,
     barcode,
-    cellX + 6,
-    cellY + 13,
+    barcodeX,
+    barcodeY,
     barcodeWidth,
     barcodeHeight
   );
 
-  // Barcode number
+  /* =====================================================
+     BARCODE NUMBER
+  ===================================================== */
+
   doc
     .font("Helvetica")
     .fontSize(8)
     .fillColor(COLORS.ink)
     .text(
       barcode,
-      cellX + 4,
-      cellY + 38,
+      cellX + 2,
+      barcodeY + 34,
       {
-        width: cellWidth - 8,
+        width: cellWidth - 4,
         align: "center",
         lineBreak: false,
       }
@@ -356,12 +408,19 @@ export const generateBulkInventoryLabelsPdf = async (
   storeId,
   res
 ) => {
+  /* =====================================================
+     NORMALIZE REQUEST
+  ===================================================== */
+
   const {
     ids,
     barcodeNos,
   } = normalizeLabelRequest(payload);
 
-  // Validation
+  /* =====================================================
+     VALIDATION
+  ===================================================== */
+
   if (
     ids.length === 0 &&
     barcodeNos.length === 0
@@ -371,7 +430,10 @@ export const generateBulkInventoryLabelsPdf = async (
     );
   }
 
-  // Get inventories
+  /* =====================================================
+     GET INVENTORIES
+  ===================================================== */
+
   const inventories =
     await inventoryRepo.getInventoriesForLabelsRepo(
       storeId,
@@ -388,7 +450,7 @@ export const generateBulkInventoryLabelsPdf = async (
   }
 
   /* =====================================================
-     A4 DOCUMENT
+     CREATE A4 DOCUMENT
   ===================================================== */
 
   const doc = new PDFDocument({
@@ -402,8 +464,16 @@ export const generateBulkInventoryLabelsPdf = async (
     },
   });
 
+  /* =====================================================
+     FILE NAME
+  ===================================================== */
+
   const filename =
     `inventory-labels-${Date.now()}.pdf`;
+
+  /* =====================================================
+     RESPONSE HEADERS
+  ===================================================== */
 
   res.setHeader(
     "Content-Type",
@@ -418,22 +488,26 @@ export const generateBulkInventoryLabelsPdf = async (
   doc.pipe(res);
 
   /* =====================================================
-     CALCULATE A4 CENTER POSITION
+     TOTAL GRID SIZE
   ===================================================== */
 
- const totalWidth =
-  COLS * LABEL_WIDTH +
-  (COLS - 1) * GAP_X;
+  const totalWidth =
+    COLS * LABEL_WIDTH +
+    (COLS - 1) * GAP_X;
 
-const totalHeight =
-  ROWS * LABEL_HEIGHT +
-  (ROWS - 1) * GAP_Y;
+  const totalHeight =
+    ROWS * LABEL_HEIGHT +
+    (ROWS - 1) * GAP_Y;
 
-const startX =
-  (A4_WIDTH - totalWidth) / 2;
+  /* =====================================================
+     CENTER GRID ON A4
+  ===================================================== */
 
-const startY =
-  (A4_HEIGHT - totalHeight) / 2;
+  const startX =
+    (A4_WIDTH - totalWidth) / 2;
+
+  const startY =
+    (A4_HEIGHT - totalHeight) / 2;
 
   /* =====================================================
      RENDER LABELS
@@ -447,26 +521,24 @@ const startY =
     const inventory =
       inventories[index];
 
-    /*
-      Example:
-
-      0  1  2  3  4
-      5  6  7  8  9
-      10 11 12 13 14
-      ...
-      50 51 52 53 54
-    */
+    /* ===================================================
+       POSITION INSIDE CURRENT PAGE
+    =================================================== */
 
     const position =
       index % LABELS_PER_PAGE;
 
-    // New A4 page after 55 labels
+    /* ===================================================
+       NEW A4 PAGE AFTER 55 LABELS
+    =================================================== */
+
     if (
       index > 0 &&
       position === 0
     ) {
       doc.addPage({
         size: "A4",
+
         margins: {
           top: 0,
           bottom: 0,
@@ -476,25 +548,44 @@ const startY =
       });
     }
 
-    // Row
+    /* ===================================================
+       ROW
+    =================================================== */
+
     const row =
       Math.floor(position / COLS);
 
-    // Column
+    /* ===================================================
+       COLUMN
+    =================================================== */
+
     const col =
       position % COLS;
 
-    // X position
+    /* ===================================================
+       X POSITION
+    =================================================== */
+
     const cellX =
       startX +
-      col * (LABEL_WIDTH + GAP_X);
+      col * (
+        LABEL_WIDTH + GAP_X
+      );
 
-    // Y position
+    /* ===================================================
+       Y POSITION
+    =================================================== */
+
     const cellY =
       startY +
-      row * (LABEL_HEIGHT + GAP_Y);
+      row * (
+        LABEL_HEIGHT + GAP_Y
+      );
 
-    // Render 100 × 70 label
+    /* ===================================================
+       RENDER 100 × 70 LABEL
+    =================================================== */
+
     await renderBulkLabel(
       doc,
       inventory,
@@ -504,6 +595,10 @@ const startY =
       LABEL_HEIGHT
     );
   }
+
+  /* =====================================================
+     FINISH PDF
+  ===================================================== */
 
   doc.end();
 };

@@ -45,6 +45,7 @@ model Store {
   rateMaster          RateMaster[]
   purchases           Purchase[]
   inventory           Inventory[]
+  advanceReceive      AdvanceReceive[]
   storeCounter        StoreCounter?
   transfersFrom       InventoryTransfer[]   @relation("TransferFromStore")
   transfersTo         InventoryTransfer[]   @relation("TransferToStore")
@@ -560,4 +561,29 @@ model InventoryTransferItem {
   @@unique([transferId, inventoryId])
   @@index([transferId])
   @@index([inventoryId])
+}
+enum AdvancePaymentMode {
+  CASH
+  ONLINE
+}
+
+model AdvanceReceive {
+  id              Int                  @id @default(autoincrement())
+  customerName    String
+  contactNumber   String?
+  address         String?
+  amount          Decimal              @db.Decimal(12, 2)
+  paymentMode    AdvancePaymentMode
+
+  specification   String?
+
+  storeId         Int
+  store           Store                @relation(fields: [storeId], references: [id])
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([storeId])
+  @@index([contactNumber])
+  @@index([customerName])
 }

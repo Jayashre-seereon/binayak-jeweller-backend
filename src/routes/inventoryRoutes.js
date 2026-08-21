@@ -8,6 +8,7 @@ import {
   updateInventory,
   updateInventoryStatus,
   printInventoryLabel,
+  printBulkInventoryLabels,
   deleteInventory,
 } from "../controllers/inventoryController.js";
 
@@ -23,6 +24,7 @@ router.get("/getById/:id", authMiddleware, getInventoryById);
 router.get("/getByBarcode/:barcodeNo", authMiddleware, getInventoryByBarcode);
 
 router.get("/label/:id", authMiddleware, printInventoryLabel);
+router.post("/labels/bulk", authMiddleware, printBulkInventoryLabels);
 
 router.put("/update/:id", authMiddleware, updateInventory);
 

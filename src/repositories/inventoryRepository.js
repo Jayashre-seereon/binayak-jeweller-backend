@@ -105,6 +105,56 @@ export const getInventoryByBarcodeRepo = async (barcodeNo, storeId) => {
   });
 };
 
+export const getInventoriesForLabelsRepo = async (storeId, { ids = [], barcodeNos = [] }) => {
+  const idList = ids
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  const barcodeList = barcodeNos
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  if (idList.length === 0 && barcodeList.length === 0) {
+    return [];
+  }
+
+  const inventories = await prisma.inventory.findMany({
+    where: {
+      storeId: Number(storeId),
+      OR: [
+        ...(idList.length > 0 ? [{ id: { in: idList } }] : []),
+        ...(barcodeList.length > 0
+          ? [
+              {
+                barcodeNo: {
+                  in: barcodeList,
+                },
+              },
+            ]
+          : []),
+      ],
+    },
+    include: {
+      purchase: true,
+      purchaseItem: true,
+      item: true,
+      product: true,
+      metal: true,
+      purityMaster: true,
+      grade: true,
+      stone: true,
+    },
+    orderBy: {
+      id: "asc",
+    },
+  });
+
+  return inventories.filter(
+    (inventory, index, self) =>
+      index === self.findIndex((entry) => entry.id === inventory.id)
+  );
+};
+
 export const updateInventoryRepo = async (id, storeId, data) => {
   return prisma.inventory.updateMany({
     where: {

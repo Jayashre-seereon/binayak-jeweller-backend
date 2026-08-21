@@ -289,3 +289,29 @@ export const printInventoryLabel = async (req, res) => {
     });
   }
 };
+
+export const printBulkInventoryLabels = async (req, res) => {
+  try {
+    const { storeId } = req.query;
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: "storeId is required",
+      });
+    }
+
+    await inventoryLabelPdfService.generateBulkInventoryLabelsPdf(
+      req.body,
+      Number(storeId),
+      res
+    );
+  } catch (error) {
+    console.error("Print bulk inventory labels error:", error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

@@ -453,7 +453,7 @@ enum InventoryTransferStatus {
 model Inventory {
   id Int @id @default(autoincrement())
 
-  inventoryCode String @unique
+  inventoryCode String
 
   purchaseItemId Int @unique
   purchaseId     Int
@@ -510,10 +510,11 @@ model Inventory {
   updatedAt     DateTime                @updatedAt
 
   @@index([storeId])
+  @@unique([storeId, inventoryCode])
+  @@unique([storeId, tagNo])
+  @@unique([storeId, barcodeNo])
   @@index([purchaseType])
   @@index([status])
-  @@index([barcodeNo])
-  @@index([tagNo])
   @@index([huidNo])
   @@index([barSerialNo])
 }

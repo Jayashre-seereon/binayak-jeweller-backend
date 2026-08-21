@@ -1,19 +1,11 @@
 import prisma from "../config/db.js";
 import * as inventoryRepo from "../repositories/inventoryRepository.js";
 
-const generateInventoryCode = async () => {
-  const lastInventory = await prisma.inventory.findFirst({
-    orderBy: {
-      id: "desc",
-    },
-    select: {
-      id: true,
-    },
-  });
+const extractInventoryCodeNumber = (value) => {
+  if (!value) return 0;
 
-  const nextNumber = (lastInventory?.id || 0) + 1;
-
-  return `INV-${String(nextNumber).padStart(6, "0")}`;
+  const match = String(value).trim().match(/^INV-(\d+)$/i);
+  return match ? Number(match[1]) : 0;
 };
 
 const extractSequenceNumber = (value, prefix) => {
@@ -30,42 +22,36 @@ const extractSequenceNumber = (value, prefix) => {
 };
 
 const getNextInventorySequence = async (storeId) => {
-  const lastInventory = await prisma.inventory.findFirst({
+  const inventories = await prisma.inventory.findMany({
     where: {
       storeId: Number(storeId),
-      OR: [
-        {
-          tagNo: {
-            not: null,
-          },
-        },
-        {
-          barcodeNo: {
-            not: null,
-          },
-        },
-      ],
-    },
-    orderBy: {
-      id: "desc",
     },
     select: {
+      inventoryCode: true,
       tagNo: true,
       barcodeNo: true,
     },
   });
 
-  return Math.max(
-    extractSequenceNumber(lastInventory?.tagNo, "TAG"),
-    extractSequenceNumber(lastInventory?.tagNo, "OLD"),
-    extractSequenceNumber(lastInventory?.tagNo, "BUL"),
-    extractSequenceNumber(lastInventory?.barcodeNo)
-  ) + 1;
+  const nextFromInventoryCode = inventories.reduce(
+    (max, inventory) => Math.max(max, extractInventoryCodeNumber(inventory.inventoryCode)),
+    0
+  );
+
+  const nextFromLabels = inventories.reduce((max, inventory) => {
+    return Math.max(
+      max,
+      extractSequenceNumber(inventory.tagNo, "TAG"),
+      extractSequenceNumber(inventory.tagNo, "OLD"),
+      extractSequenceNumber(inventory.tagNo, "BUL"),
+      extractSequenceNumber(inventory.barcodeNo)
+    );
+  }, 0);
+
+  return Math.max(nextFromInventoryCode, nextFromLabels) + 1;
 };
 
-const generateTagNo = async (storeId, purchaseType) => {
-  const nextNumber = await getNextInventorySequence(storeId);
-
+const generateTagNo = (sequenceNumber, purchaseType) => {
   let prefix = "TAG";
 
   if (purchaseType === "OLD") {
@@ -76,13 +62,23 @@ const generateTagNo = async (storeId, purchaseType) => {
     prefix = "BUL";
   }
 
-  return `${prefix}-${String(nextNumber).padStart(6, "0")}`;
+  return `${prefix}-${String(sequenceNumber).padStart(6, "0")}`;
 };
 
-const generateBarcodeNo = async (storeId, sequenceNumber) => {
-  const nextNumber = sequenceNumber ?? (await getNextInventorySequence(storeId));
+const generateBarcodeNo = (sequenceNumber) => {
+  return `890000${String(sequenceNumber).padStart(6, "0")}`;
+};
 
-  return `890000${String(nextNumber).padStart(6, "0")}`;
+const isUniqueInventoryCodeError = (error) => {
+  const target = error?.meta?.target;
+  const targetKey = Array.isArray(target) ? target.join(",") : String(target || "");
+
+  return (
+    error?.code === "P2002" &&
+    (targetKey.includes("inventoryCode") ||
+      targetKey.includes("tagNo") ||
+      targetKey.includes("barcodeNo"))
+  );
 };
 
 const asString = (value) => (value === null || value === undefined ? null : String(value));
@@ -127,64 +123,98 @@ export const createInventoryService = async (
   }
 
   const purchaseType = purchaseItem.purchase.purchaseType;
+  const storeIdNumber = Number(storeId);
+  const maxAttempts = 5;
 
-  const inventoryCode = await generateInventoryCode();
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const nextSequence = await getNextInventorySequence(storeIdNumber);
+    const inventoryCode = `INV-${String(nextSequence).padStart(6, "0")}`;
+    const barcodeNo = generateBarcodeNo(nextSequence);
+    const tagNo =
+      purchaseType === "ORNAMENT" ||
+      purchaseType === "OLD" ||
+      purchaseType === "BULLION"
+        ? generateTagNo(nextSequence, purchaseType)
+        : null;
 
-  let tagNo = null;
-  const nextSequence = await getNextInventorySequence(storeId);
+    const duplicateCheck = await prisma.inventory.findFirst({
+      where: {
+        storeId: storeIdNumber,
+        OR: [
+          { inventoryCode },
+          ...(tagNo ? [{ tagNo }] : []),
+          ...(barcodeNo ? [{ barcodeNo }] : []),
+        ],
+      },
+      select: {
+        id: true,
+      },
+    });
 
-  // Inventory tag numbers are generated per inventory record, not copied from purchase data.
-  if (purchaseType === "ORNAMENT" || purchaseType === "OLD" || purchaseType === "BULLION") {
-    tagNo = await generateTagNo(storeId, purchaseType);
+    if (duplicateCheck) {
+      if (attempt < maxAttempts) {
+        continue;
+      }
+
+      throw new Error("Unable to generate a unique inventory sequence for this store");
+    }
+
+    const data = {
+      inventoryCode,
+
+      purchaseItemId: purchaseItem.id,
+      purchaseId: purchaseItem.purchaseId,
+      storeId: storeIdNumber,
+
+      purchaseType,
+
+      itemId: purchaseItem.itemId,
+      productId: purchaseItem.productId,
+      metalId: purchaseItem.metalId,
+      purityId: purchaseItem.purityId,
+      gradeId: purchaseItem.gradeId,
+      stoneId: purchaseItem.stoneId,
+
+      grossWeight: purchaseItem.grossWeight,
+      stoneWeight: purchaseItem.stoneWeight,
+      netWeight: purchaseItem.netWeight,
+
+      dustWeight: purchaseItem.dustWeight,
+      deductionWeight: purchaseItem.deductionWeight,
+
+      pureWeight: purchaseItem.pureWeight,
+      actualWeight: purchaseItem.actualWeight,
+      balanceWeight: purchaseItem.balanceWeight,
+
+      purity: purchaseItem.purity,
+      touchPercentage: purchaseItem.touchPercentage,
+      fineness: purchaseItem.fineness,
+
+      huidNo: asString(purchaseItem.huidNo),
+      tagNo: asString(tagNo),
+      barcodeNo: asString(barcodeNo),
+      barSerialNo: asString(purchaseItem.barSerialNo),
+      assayCertNo: asString(purchaseItem.assayCertNo),
+
+      status: "AVAILABLE",
+
+      itemPhoto: purchaseItem.itemPhoto,
+      narration: purchaseItem.narration,
+      extraDetails: purchaseItem.extraDetails,
+    };
+
+    try {
+      return await inventoryRepo.createInventoryRepo(data);
+    } catch (error) {
+      if (isUniqueInventoryCodeError(error) && attempt < maxAttempts) {
+        continue;
+      }
+
+      throw error;
+    }
   }
 
-  const barcodeNo = await generateBarcodeNo(storeId, nextSequence);
-
-  const data = {
-    inventoryCode,
-
-    purchaseItemId: purchaseItem.id,
-    purchaseId: purchaseItem.purchaseId,
-    storeId: Number(storeId),
-
-    purchaseType,
-
-    itemId: purchaseItem.itemId,
-    productId: purchaseItem.productId,
-    metalId: purchaseItem.metalId,
-    purityId: purchaseItem.purityId,
-    gradeId: purchaseItem.gradeId,
-    stoneId: purchaseItem.stoneId,
-
-    grossWeight: purchaseItem.grossWeight,
-    stoneWeight: purchaseItem.stoneWeight,
-    netWeight: purchaseItem.netWeight,
-
-    dustWeight: purchaseItem.dustWeight,
-    deductionWeight: purchaseItem.deductionWeight,
-
-    pureWeight: purchaseItem.pureWeight,
-    actualWeight: purchaseItem.actualWeight,
-    balanceWeight: purchaseItem.balanceWeight,
-
-    purity: purchaseItem.purity,
-    touchPercentage: purchaseItem.touchPercentage,
-    fineness: purchaseItem.fineness,
-
-    huidNo: asString(purchaseItem.huidNo),
-    tagNo: asString(tagNo),
-    barcodeNo: asString(barcodeNo),
-    barSerialNo: asString(purchaseItem.barSerialNo),
-    assayCertNo: asString(purchaseItem.assayCertNo),
-
-    status: "AVAILABLE",
-
-    itemPhoto: purchaseItem.itemPhoto,
-    narration: purchaseItem.narration,
-    extraDetails: purchaseItem.extraDetails,
-  };
-
-  return await inventoryRepo.createInventoryRepo(data);
+  throw new Error("Failed to generate a unique inventory code");
 };
 
 export const getInventoriesService = async (

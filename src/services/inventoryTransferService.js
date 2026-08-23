@@ -17,6 +17,13 @@ const extractSequenceNumber = (value, prefix) => {
     return match ? Number(match[1]) : 0;
   }
 
+  // Barcode numbers are generated as 890000 + 6 digit sequence.
+  // Extract only the trailing 6-digit sequence instead of the full barcode.
+  const barcodeMatch = normalized.match(/^890000(\d{6})$/);
+  if (barcodeMatch) {
+    return Number(barcodeMatch[1]);
+  }
+
   const match = normalized.match(/(\d+)$/);
   return match ? Number(match[1]) : 0;
 };

@@ -45,6 +45,51 @@ export const getPurchasesByStore = async (storeId) => {
   });
 };
 
+export const getPurchasesByStoreAndPhone = async (
+  storeId,
+  phone
+) => {
+  return prisma.purchase.findMany({
+    where: {
+      storeId: Number(storeId),
+      purchaseType: "OLD",
+      OR: [
+        {
+          customerPhone: {
+            equals: phone,
+            mode: "insensitive",
+          },
+        },
+        {
+          party: {
+            phone: {
+              equals: phone,
+              mode: "insensitive",
+            },
+          },
+        },
+      ],
+    },
+    include: {
+      party: true,
+      employee: true,
+      items: {
+        include: {
+          item: true,
+          product: true,
+          metal: true,
+          purityMaster: true,
+          grade: true,
+          stone: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+};
+
 export const getPurchaseByIdRepo = async (id) => {
   return prisma.purchase.findUnique({
     where: {

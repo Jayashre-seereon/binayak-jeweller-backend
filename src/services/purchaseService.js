@@ -2,6 +2,7 @@ import prisma from "../config/db.js";
 import {
   createPurchaseRepo,
   getPurchasesByStore,
+  getPurchasesByStoreAndPhone,
   getPurchaseByIdRepo,
   getPurchaseItemsByPurchaseIdRepo,
   updatePurchaseRepo,
@@ -9,6 +10,8 @@ import {
   countPurchases
 } from "../repositories/purchaseRepository.js";
 import { generateInvoiceNo } from "../utils/purchaseCodeGenerator.js";
+
+const purchaseError = (message) => new Error(message);
 
 const buildPurchaseItemCode = (id) => `PITM-${String(id).padStart(4, "0")}`;
 
@@ -43,95 +46,23 @@ export const createPurchase = async (data, storeId) => {
   const numericStoreId = Number(storeId);
 
   if (!numericStoreId) {
-    throw new Error("Store ID is required");
+    throw purchaseError("Please select a store before creating a purchase.");
   }
 
- const invoiceNo = await generateInvoiceNo(numericStoreId);
-
   if (!data.purchaseType) {
-    throw new Error("Purchase type is required");
+    throw purchaseError("Please select a purchase type.");
   }
 
   if (!["ORNAMENT", "OLD", "BULLION"].includes(data.purchaseType)) {
-    throw new Error("Invalid purchase type");
+    throw purchaseError("Please choose a valid purchase type.");
   }
 
   
 
   if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
-    throw new Error("At least one purchase item is required");
+    throw purchaseError("Please add at least one purchase item.");
   }
 
-  // ===== CHANGED: only look up party if partyId given; else require walk-in KYC for OLD =====
-  let party = null;
-  if (data.partyId) {
-    party = await prisma.partymaster.findFirst({
-      where: {
-        id: Number(data.partyId),
-        storeId: numericStoreId
-      }
-    });
-
-    if (!party) {
-      throw new Error("Party not found for this store");
-    }
-  } else if (data.purchaseType === "OLD") {
-    if (!data.customerName || !data.customerPhone) {
-      throw new Error("Customer name and phone are required for walk-in old gold purchase");
-    }
-  }
-
-  if (data.employeeId) {
-    const employee = await prisma.employee.findFirst({
-      where: {
-        id: Number(data.employeeId),
-        storeId: numericStoreId
-      }
-    });
-
-    if (!employee) {
-      throw new Error("Employee not found for this store");
-    }
-  }
-
-  for (const item of data.items) {
-    if (item.productId) {
-      const product = await prisma.product.findFirst({
-        where: { id: Number(item.productId), storeId: numericStoreId }
-      });
-      if (!product) throw new Error("Product not found for this store");
-    }
-
-    if (item.metalId) {
-      const metal = await prisma.metal.findFirst({
-        where: { id: Number(item.metalId), storeId: numericStoreId }
-      });
-      if (!metal) throw new Error("Metal not found for this store");
-    }
-
-    if (item.purityId) {
-      const purity = await prisma.purity.findFirst({
-        where: { id: Number(item.purityId), storeId: numericStoreId }
-      });
-      if (!purity) throw new Error("Purity not found for this store");
-    }
-
-    if (item.gradeId) {
-      const grade = await prisma.grade.findFirst({
-        where: { id: Number(item.gradeId), storeId: numericStoreId }
-      });
-      if (!grade) throw new Error("Grade not found for this store");
-    }
-
-    if (item.stoneId) {
-      const stone = await prisma.stone.findFirst({
-        where: { id: Number(item.stoneId), storeId: numericStoreId }
-      });
-      if (!stone) throw new Error("Stone not found for this store");
-    }
-  }
-
-  // ===== CHANGED: added new fields inside item mapping =====
   const purchaseItems = data.items.map((item) => ({
     itemId: item.itemId ? Number(item.itemId) : null,
     productId: item.productId ? Number(item.productId) : null,
@@ -180,59 +111,131 @@ export const createPurchase = async (data, storeId) => {
     extraDetails: item.extraDetails || null                            // NEW
   }));
 
-  // ===== CHANGED: added new fields in purchaseData =====
-  const purchaseData = {
-  invoiceNo,
-  purchaseType: data.purchaseType,
-
-    partyId: data.partyId ? Number(data.partyId) : null,               // CHANGED (was always Number(data.partyId))
-
+  const buildPurchaseData = (invoiceNo) => ({
+    invoiceNo,
+    purchaseType: data.purchaseType,
+    partyId: data.partyId ? Number(data.partyId) : null,
     employeeId: data.employeeId ? Number(data.employeeId) : null,
     storeId: numericStoreId,
-
     date: data.date ? new Date(data.date) : new Date(),
-
     referenceNo: data.referenceNo || null,
     referenceDate: data.referenceDate ? new Date(data.referenceDate) : null,
-
     address: data.address || null,
-
-    placeOfSupply: data.placeOfSupply || null,                         // NEW
-    isRCM: Boolean(data.isRCM),                                        // NEW
-
-    customerName: data.customerName || null,                           // NEW
-    customerPhone: data.customerPhone || null,                         // NEW
-    customerIdType: data.customerIdType || null,                       // NEW
-    customerIdNumber: data.customerIdNumber || null,                   // NEW
-
+    placeOfSupply: data.placeOfSupply || null,
+    isRCM: Boolean(data.isRCM),
+    customerName: data.customerName || null,
+    customerPhone: data.customerPhone || null,
+    customerIdType: data.customerIdType || null,
+    customerIdNumber: data.customerIdNumber || null,
     document: data.document || null,
-    attachments: data.attachments || null,                             // NEW
-
+    attachments: data.attachments || null,
     subtotal: Number(data.subtotal || 0),
-    discount: Number(data.discount || 0),                              // NEW
-
+    discount: Number(data.discount || 0),
     igst: Number(data.igst || 0),
     cgst: Number(data.cgst || 0),
     sgst: Number(data.sgst || 0),
-
     taxAmount: Number(data.taxAmount || 0),
-    roundOff: Number(data.roundOff || 0),                              // NEW
+    roundOff: Number(data.roundOff || 0),
     totalAmount: Number(data.totalAmount || 0),
-
     paymentMode: data.paymentMode || null,
-
     paidAmount: Number(data.paidAmount || 0),
     dueAmount: Number(data.dueAmount || 0),
-
     narration: data.narration || null,
-
-
     items: {
       create: purchaseItems
     }
-  };
+  });
 
-  return await attachPurchaseItemCodes(await createPurchaseRepo(purchaseData));
+  // Retry on unique invoice collisions.
+  const maxAttempts = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const invoiceNo = await generateInvoiceNo(numericStoreId);
+
+    // ===== CHANGED: only look up party if partyId given; else require walk-in KYC for OLD =====
+    let party = null;
+    if (data.partyId) {
+      party = await prisma.partymaster.findFirst({
+        where: {
+          id: Number(data.partyId),
+          storeId: numericStoreId
+        }
+      });
+
+      if (!party) {
+        throw purchaseError("The selected customer is not linked to this store. Please choose a valid customer.");
+      }
+    } else if (data.purchaseType === "OLD") {
+      if (!data.customerName || !data.customerPhone) {
+        throw purchaseError("Please enter customer name and phone for a walk-in old gold purchase.");
+      }
+    }
+
+    if (data.employeeId) {
+      const employee = await prisma.employee.findFirst({
+        where: {
+          id: Number(data.employeeId),
+          storeId: numericStoreId
+        }
+      });
+
+      if (!employee) {
+        throw purchaseError("The selected employee is not linked to this store. Please choose a valid employee.");
+      }
+    }
+
+    for (const item of data.items) {
+      if (item.productId) {
+        const product = await prisma.product.findFirst({
+          where: { id: Number(item.productId), storeId: numericStoreId }
+        });
+        if (!product) throw purchaseError("The selected product is not linked to this store.");
+      }
+
+      if (item.metalId) {
+        const metal = await prisma.metal.findFirst({
+          where: { id: Number(item.metalId), storeId: numericStoreId }
+        });
+        if (!metal) throw purchaseError("The selected metal is not linked to this store.");
+      }
+
+      if (item.purityId) {
+        const purity = await prisma.purity.findFirst({
+          where: { id: Number(item.purityId), storeId: numericStoreId }
+        });
+        if (!purity) throw purchaseError("The selected purity is not linked to this store.");
+      }
+
+      if (item.gradeId) {
+        const grade = await prisma.grade.findFirst({
+          where: { id: Number(item.gradeId), storeId: numericStoreId }
+        });
+        if (!grade) throw purchaseError("The selected grade is not linked to this store.");
+      }
+
+      if (item.stoneId) {
+        const stone = await prisma.stone.findFirst({
+          where: { id: Number(item.stoneId), storeId: numericStoreId }
+        });
+        if (!stone) throw purchaseError("The selected stone is not linked to this store.");
+      }
+    }
+
+    try {
+      return await attachPurchaseItemCodes(
+        await createPurchaseRepo(buildPurchaseData(invoiceNo))
+      );
+    } catch (error) {
+      lastError = error;
+      if (error?.code === "P2002" && attempt < maxAttempts) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw lastError || new Error("Failed to create purchase");
 };
 
 export const getPurchases = async (storeId) => {
@@ -244,11 +247,11 @@ export const getPurchaseById = async (id, storeId) => {
   const purchase = await getPurchaseByIdRepo(Number(id));
 
   if (!purchase) {
-    throw new Error("Purchase not found");
+    throw purchaseError("Purchase record not found.");
   }
 
   if (purchase.storeId !== Number(storeId)) {
-    throw new Error("Unauthorized");
+    throw purchaseError("You do not have access to this purchase.");
   }
 
   return await attachPurchaseItemCodes(purchase);
@@ -258,11 +261,11 @@ export const getPurchaseItemsByPurchaseId = async (purchaseId, storeId) => {
   const purchase = await getPurchaseByIdRepo(Number(purchaseId));
 
   if (!purchase) {
-    throw new Error("Purchase not found");
+    throw purchaseError("Purchase record not found.");
   }
 
   if (purchase.storeId !== Number(storeId)) {
-    throw new Error("Unauthorized");
+    throw purchaseError("You do not have access to this purchase.");
   }
 
   const purchaseItems = await getPurchaseItemsByPurchaseIdRepo(
@@ -280,18 +283,18 @@ export const updatePurchase = async (id, data, storeId) => {
   const purchase = await getPurchaseByIdRepo(Number(id));
 
   if (!purchase) {
-    throw new Error("Purchase not found");
+    throw purchaseError("Purchase record not found.");
   }
 
   if (purchase.storeId !== numericStoreId) {
-    throw new Error("Unauthorized");
+    throw purchaseError("You do not have access to this purchase.");
   }
 
   const updateData = {};
 
   if (data.purchaseType !== undefined) {
     if (!["ORNAMENT", "OLD", "BULLION"].includes(data.purchaseType)) {
-      throw new Error("Invalid purchase type");
+      throw purchaseError("Please choose a valid purchase type.");
     }
     updateData.purchaseType = data.purchaseType;
   }
@@ -304,7 +307,7 @@ export const updatePurchase = async (id, data, storeId) => {
       const party = await prisma.partymaster.findFirst({
         where: { id: Number(data.partyId), storeId: numericStoreId }
       });
-      if (!party) throw new Error("Party not found for this store");
+      if (!party) throw purchaseError("The selected customer is not linked to this store. Please choose a valid customer.");
       updateData.partyId = Number(data.partyId);
     }
   }
@@ -316,7 +319,7 @@ export const updatePurchase = async (id, data, storeId) => {
       const employee = await prisma.employee.findFirst({
         where: { id: Number(data.employeeId), storeId: numericStoreId }
       });
-      if (!employee) throw new Error("Employee not found for this store");
+      if (!employee) throw purchaseError("The selected employee is not linked to this store. Please choose a valid employee.");
       updateData.employeeId = Number(data.employeeId);
     }
   }
@@ -419,7 +422,7 @@ export const updatePurchase = async (id, data, storeId) => {
 
   if (data.items !== undefined) {
     if (!Array.isArray(data.items) || data.items.length === 0) {
-      throw new Error("At least one purchase item is required");
+      throw purchaseError("Please add at least one purchase item.");
     }
 
     for (const item of data.items) {
@@ -427,42 +430,42 @@ export const updatePurchase = async (id, data, storeId) => {
         const purchaseItem = await prisma.item.findFirst({
           where: { id: Number(item.itemId), storeId: numericStoreId }
         });
-        if (!purchaseItem) throw new Error("Item not found for this store");
+        if (!purchaseItem) throw purchaseError("The selected item is not linked to this store.");
       }
 
       if (item.productId) {
         const product = await prisma.product.findFirst({
           where: { id: Number(item.productId), storeId: numericStoreId }
         });
-        if (!product) throw new Error("Product not found for this store");
+        if (!product) throw purchaseError("The selected product is not linked to this store.");
       }
 
       if (item.metalId) {
         const metal = await prisma.metal.findFirst({
           where: { id: Number(item.metalId), storeId: numericStoreId }
         });
-        if (!metal) throw new Error("Metal not found for this store");
+        if (!metal) throw purchaseError("The selected metal is not linked to this store.");
       }
 
       if (item.purityId) {
         const purity = await prisma.purity.findFirst({
           where: { id: Number(item.purityId), storeId: numericStoreId }
         });
-        if (!purity) throw new Error("Purity not found for this store");
+        if (!purity) throw purchaseError("The selected purity is not linked to this store.");
       }
 
       if (item.gradeId) {
         const grade = await prisma.grade.findFirst({
           where: { id: Number(item.gradeId), storeId: numericStoreId }
         });
-        if (!grade) throw new Error("Grade not found for this store");
+        if (!grade) throw purchaseError("The selected grade is not linked to this store.");
       }
 
       if (item.stoneId) {
         const stone = await prisma.stone.findFirst({
           where: { id: Number(item.stoneId), storeId: numericStoreId }
         });
-        if (!stone) throw new Error("Stone not found for this store");
+        if (!stone) throw purchaseError("The selected stone is not linked to this store.");
       }
     }
 
@@ -519,11 +522,11 @@ export const deletePurchase = async (id, storeId) => {
   const purchase = await getPurchaseByIdRepo(Number(id));
 
   if (!purchase) {
-    throw new Error("Purchase not found");
+    throw purchaseError("Purchase record not found.");
   }
 
   if (purchase.storeId !== Number(storeId)) {
-    throw new Error("Unauthorized");
+    throw purchaseError("You do not have access to this purchase.");
   }
 
   return await deletePurchaseRepo(Number(id));
@@ -531,4 +534,22 @@ export const deletePurchase = async (id, storeId) => {
 
 export const getPurchaseCount = async (storeId) => {
   return await countPurchases(Number(storeId));
+};
+
+export const getOldGoldPurchasesByPhoneService = async (
+  storeId,
+  phone
+) => {
+  const numericStoreId = Number(storeId);
+  const customerPhone = String(phone || "").trim();
+
+  if (!numericStoreId) {
+    throw purchaseError("Please select a store before viewing old gold purchases.");
+  }
+
+  if (!customerPhone) {
+    throw purchaseError("Please enter a customer phone number.");
+  }
+
+  return await getPurchasesByStoreAndPhone(numericStoreId, customerPhone);
 };

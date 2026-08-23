@@ -127,6 +127,29 @@ export const getPurchaseItemsByPurchaseId = async (req, res) => {
   }
 };
 
+export const getOldGoldPurchasesByPhone = async (req, res) => {
+  try {
+    const storeId = Number(req.query.storeId);
+    const phone = String(req.query.phone || "").trim();
+
+    const purchases =
+      await purchaseService.getOldGoldPurchasesByPhoneService(
+        storeId,
+        phone
+      );
+
+    res.json({
+      success: true,
+      purchases,
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 
 
 export const deletePurchase = async (req, res) => {
@@ -176,14 +199,14 @@ export const downloadPurchasePdf = async (req, res) => {
     if (!purchaseId) {
       return res.status(400).json({
         success: false,
-        message: "Purchase ID is required"
+        message: "Please select a purchase record."
       });
     }
 
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "Store ID is required"
+        message: "Please select a store."
       });
     }
 
@@ -198,7 +221,7 @@ export const downloadPurchasePdf = async (req, res) => {
     if (!res.headersSent) {
       res.status(400).json({
         success: false,
-        message: err.message
+        message: err.message || "Unable to complete purchase action. Please try again."
       });
     }
   }

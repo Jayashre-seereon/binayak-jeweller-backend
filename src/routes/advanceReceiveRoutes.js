@@ -4,6 +4,7 @@ import {
   createAdvanceReceive,
   getAdvanceReceives,
   getAdvanceReceiveById,
+  getAdvanceReceivesByContact,
   updateAdvanceReceive,
   deleteAdvanceReceive,
 } from "../controllers/advanceReceiveController.js";
@@ -28,6 +29,12 @@ router.get(
   "/getById/:id",
   authMiddleware,
   getAdvanceReceiveById
+);
+
+router.get(
+  "/by-contact",
+  authMiddleware,
+  getAdvanceReceivesByContact
 );
 
 router.put(

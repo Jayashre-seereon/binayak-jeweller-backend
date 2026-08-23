@@ -9,26 +9,25 @@ export const createInventory = async (req, res) => {
     if (!purchaseItemId) {
       return res.status(400).json({
         success: false,
-        message: "purchaseItemId is required",
+        message: "Please select a purchase item.",
       });
     }
 
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
-    const inventory =
-      await inventoryService.createInventoryService(
-        purchaseItemId,
-        Number(storeId)
-      );
+    const inventory = await inventoryService.createInventoryService(
+      purchaseItemId,
+      Number(storeId)
+    );
 
     return res.status(201).json({
       success: true,
-      message: "Inventory created successfully",
+      message: "Inventory created successfully.",
       inventory,
     });
   } catch (error) {
@@ -36,7 +35,7 @@ export const createInventory = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to create inventory. Please try again.",
     });
   }
 };
@@ -48,7 +47,7 @@ export const getInventories = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
@@ -65,11 +64,10 @@ export const getInventories = async (req, res) => {
       barSerialNo: req.query.barSerialNo,
     };
 
-    const inventories =
-      await inventoryService.getInventoriesService(
-        Number(storeId),
-        filters
-      );
+    const inventories = await inventoryService.getInventoriesService(
+      Number(storeId),
+      filters
+    );
 
     return res.status(200).json({
       success: true,
@@ -81,7 +79,7 @@ export const getInventories = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to load inventories right now.",
     });
   }
 };
@@ -94,15 +92,14 @@ export const getInventoryById = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
-    const inventory =
-      await inventoryService.getInventoryByIdService(
-        id,
-        Number(storeId)
-      );
+    const inventory = await inventoryService.getInventoryByIdService(
+      id,
+      Number(storeId)
+    );
 
     return res.status(200).json({
       success: true,
@@ -113,7 +110,7 @@ export const getInventoryById = async (req, res) => {
 
     return res.status(404).json({
       success: false,
-      message: error.message,
+      message: error.message || "Inventory record not found.",
     });
   }
 };
@@ -126,14 +123,14 @@ export const getInventoryByBarcode = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
     if (!barcodeNo) {
       return res.status(400).json({
         success: false,
-        message: "barcodeNo is required",
+        message: "Please enter a barcode number.",
       });
     }
 
@@ -151,7 +148,7 @@ export const getInventoryByBarcode = async (req, res) => {
 
     return res.status(404).json({
       success: false,
-      message: error.message,
+      message: error.message || "Inventory record not found.",
     });
   }
 };
@@ -164,20 +161,19 @@ export const updateInventory = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
-    const inventory =
-      await inventoryService.updateInventoryService(
-        id,
-        Number(storeId),
-        req.body
-      );
+    const inventory = await inventoryService.updateInventoryService(
+      id,
+      Number(storeId),
+      req.body
+    );
 
     return res.status(200).json({
       success: true,
-      message: "Inventory updated successfully",
+      message: "Inventory updated successfully.",
       inventory,
     });
   } catch (error) {
@@ -185,7 +181,7 @@ export const updateInventory = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to update inventory. Please try again.",
     });
   }
 };
@@ -199,27 +195,26 @@ export const updateInventoryStatus = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
     if (!status) {
       return res.status(400).json({
         success: false,
-        message: "Status is required",
+        message: "Please select an inventory status.",
       });
     }
 
-    const inventory =
-      await inventoryService.updateInventoryStatusService(
-        id,
-        Number(storeId),
-        status
-      );
+    const inventory = await inventoryService.updateInventoryStatusService(
+      id,
+      Number(storeId),
+      status
+    );
 
     return res.status(200).json({
       success: true,
-      message: "Inventory status updated successfully",
+      message: "Inventory status updated successfully.",
       inventory,
     });
   } catch (error) {
@@ -227,7 +222,7 @@ export const updateInventoryStatus = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to update inventory status. Please try again.",
     });
   }
 };
@@ -240,25 +235,22 @@ export const deleteInventory = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
-    await inventoryService.deleteInventoryService(
-      id,
-      Number(storeId)
-    );
+    await inventoryService.deleteInventoryService(id, Number(storeId));
 
     return res.status(200).json({
       success: true,
-      message: "Inventory deleted successfully",
+      message: "Inventory deleted successfully.",
     });
   } catch (error) {
     console.error("Delete inventory error:", error);
 
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to delete inventory. Please try again.",
     });
   }
 };
@@ -271,7 +263,7 @@ export const printInventoryLabel = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
@@ -285,7 +277,7 @@ export const printInventoryLabel = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to print the inventory label.",
     });
   }
 };
@@ -297,7 +289,7 @@ export const printBulkInventoryLabels = async (req, res) => {
     if (!storeId) {
       return res.status(400).json({
         success: false,
-        message: "storeId is required",
+        message: "Please select a store.",
       });
     }
 
@@ -311,7 +303,7 @@ export const printBulkInventoryLabels = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Unable to print inventory labels.",
     });
   }
 };

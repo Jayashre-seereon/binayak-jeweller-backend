@@ -6,6 +6,7 @@ import {
   getPurchases,
   getPurchaseById,
   getPurchaseItemsByPurchaseId,
+  getOldGoldPurchasesByPhone,
   updatePurchase,
   deletePurchase,
   getPurchaseCount,
@@ -28,6 +29,8 @@ router.get("/get", authMiddleware, getPurchases);
 router.get("/getById/:id", authMiddleware, getPurchaseById);
 
 router.get("/itemsByPurchase/:id", authMiddleware, getPurchaseItemsByPurchaseId);
+
+router.get("/old-gold/by-phone", authMiddleware, getOldGoldPurchasesByPhone);
 
 router.put("/update/:id", authMiddleware, purchaseUpload, updatePurchase);
 

@@ -70,6 +70,23 @@ export const getAdvanceReceivesService = async (
   );
 };
 
+export const getAdvanceReceivesByContactService = async (
+  storeId,
+  contactNumber
+) => {
+  const parsedStoreId = validateStoreId(storeId);
+  const phone = String(contactNumber || "").trim();
+
+  if (!phone) {
+    throw new Error("Contact number is required");
+  }
+
+  return await advanceReceiveRepo.getAdvanceReceivesByContactRepo(
+    parsedStoreId,
+    phone
+  );
+};
+
 export const getAdvanceReceiveByIdService = async (
   id,
   storeId

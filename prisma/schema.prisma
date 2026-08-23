@@ -20,35 +20,39 @@ model User {
 }
 
 model Store {
-  id                  Int                   @id @default(autoincrement())
-  storeName           String
-  location            String?
-  email               String                @unique
-  password            String
-  role                String                @default("STORE")
-  refreshToken        String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  brands              Brand[]
-  categories          Category[]
-  metals              Metal[]
-  purities            Purity[]
-  grades              Grade[]
-  designs             Design[]
-  products            Product[]
-  items               Item[]
-  stones              Stone[]
-  employees           Employee[]
-  partytypes          Partytype[]
-  partymasters        Partymaster[]
-  partyOpeningBalance PartyOpeningBalance[]
-  rateMaster          RateMaster[]
-  purchases           Purchase[]
-  inventory           Inventory[]
-  advanceReceive      AdvanceReceive[]
-  storeCounter        StoreCounter?
-  transfersFrom       InventoryTransfer[]   @relation("TransferFromStore")
-  transfersTo         InventoryTransfer[]   @relation("TransferToStore")
+  id                     Int                     @id @default(autoincrement())
+  storeName              String
+  location               String?
+  email                  String                  @unique
+  password               String
+  role                   String                  @default("STORE")
+  refreshToken           String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  brands                 Brand[]
+  categories             Category[]
+  metals                 Metal[]
+  purities               Purity[]
+  grades                 Grade[]
+  designs                Design[]
+  products               Product[]
+  items                  Item[]
+  stones                 Stone[]
+  employees              Employee[]
+  partytypes             Partytype[]
+  partymasters           Partymaster[]
+  partyOpeningBalance    PartyOpeningBalance[]
+  rateMaster             RateMaster[]
+  purchases              Purchase[]
+  inventory              Inventory[]
+  advanceReceive         AdvanceReceive[]
+  storeCounter           StoreCounter?
+  sales                  Sale[]
+  salePayments           SalePayment[]
+  saleOldGolds           SaleOldGold[]
+  saleAdvanceAdjustments SaleAdvanceAdjustment[]
+  transfersFrom          InventoryTransfer[]     @relation("TransferFromStore")
+  transfersTo            InventoryTransfer[]     @relation("TransferToStore")
 }
 
 model Brand {
@@ -237,12 +241,15 @@ model Employee {
 }
 
 model StoreCounter {
-  id                 Int   @id @default(autoincrement())
-  storeId            Int   @unique
-  lastEmpNumber      Int   @default(0)
-  lastInvoiceNumber  Int   @default(0)
-  lastTransferNumber Int   @default(0)
-  store              Store @relation(fields: [storeId], references: [id])
+  id                 Int @id @default(autoincrement())
+  storeId            Int @unique
+  lastEmpNumber      Int @default(0)
+  lastInvoiceNumber  Int @default(0)
+  lastTransferNumber Int @default(0)
+  lastSaleNumber     Int @default(0)
+  lastInventoryNumber Int @default(0)
+
+  store Store @relation(fields: [storeId], references: [id])
 }
 
 model Partytype {
@@ -270,6 +277,7 @@ model Partymaster {
   partytype           Partytype             @relation(fields: [partytypeId], references: [id])
   partyOpeningBalance PartyOpeningBalance[]
   purchases           Purchase[]
+  sales               Sale[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 }
@@ -363,13 +371,14 @@ model Purchase {
 
   narration String?
 
-  party     Partymaster?   @relation(fields: [partyId], references: [id])
-  employee  Employee?      @relation(fields: [employeeId], references: [id])
-  store     Store          @relation(fields: [storeId], references: [id])
-  items     PurchaseItem[]
-  inventory Inventory[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  party        Partymaster?   @relation(fields: [partyId], references: [id])
+  employee     Employee?      @relation(fields: [employeeId], references: [id])
+  store        Store          @relation(fields: [storeId], references: [id])
+  items        PurchaseItem[]
+  inventory    Inventory[]
+  saleOldGolds SaleOldGold[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 }
 
 model PurchaseItem {
@@ -507,13 +516,14 @@ model Inventory {
   grade         Grade?                  @relation(fields: [gradeId], references: [id])
   stone         Stone?                  @relation(fields: [stoneId], references: [id])
   transferItems InventoryTransferItem[]
+  saleItems     SaleItem[]
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
 
-  @@index([storeId])
   @@unique([storeId, inventoryCode])
   @@unique([storeId, tagNo])
   @@unique([storeId, barcodeNo])
+  @@index([storeId])
   @@index([purchaseType])
   @@index([status])
   @@index([huidNo])
@@ -562,28 +572,222 @@ model InventoryTransferItem {
   @@index([transferId])
   @@index([inventoryId])
 }
+
 enum AdvancePaymentMode {
   CASH
   ONLINE
 }
 
 model AdvanceReceive {
-  id              Int                  @id @default(autoincrement())
-  customerName    String
-  contactNumber   String?
-  address         String?
-  amount          Decimal              @db.Decimal(12, 2)
-  paymentMode    AdvancePaymentMode
+  id            Int                @id @default(autoincrement())
+  customerName  String
+  contactNumber String?
+  address       String?
+  amount        Decimal            @db.Decimal(12, 2)
+  paymentMode   AdvancePaymentMode
+  specification String?
 
-  specification   String?
+  storeId Int
+  store   Store @relation(fields: [storeId], references: [id])
 
-  storeId         Int
-  store           Store                @relation(fields: [storeId], references: [id])
+  saleAdjustments SaleAdvanceAdjustment[]
 
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([storeId])
   @@index([contactNumber])
   @@index([customerName])
+}
+
+enum SalePaymentMode {
+  CASH
+  ONLINE
+  CARD
+  UPI
+  CHEQUE
+  OTHER
+}
+
+enum SaleStatus {
+  COMPLETED
+  CANCELLED
+}
+
+model Sale {
+  id        Int    @id @default(autoincrement())
+  invoiceNo String @unique
+
+  storeId Int
+  partyId Int?
+
+  saleDate DateTime   @default(now())
+  status   SaleStatus @default(COMPLETED)
+
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?
+  customerGst     String?
+
+  subtotal Float @default(0)
+  discount Float @default(0)
+
+  igst      Float @default(0)
+  cgst      Float @default(0)
+  sgst      Float @default(0)
+  taxAmount Float @default(0)
+
+  roundOff Float @default(0)
+
+  grossTotal Float @default(0)
+
+  oldGoldAmount Float @default(0)
+  advanceAmount Float @default(0)
+
+  payableAmount Float @default(0)
+  paidAmount    Float @default(0)
+  dueAmount     Float @default(0)
+
+  narration String?
+
+  store Store        @relation(fields: [storeId], references: [id])
+  party Partymaster? @relation(fields: [partyId], references: [id])
+
+  items              SaleItem[]
+  payments           SalePayment[]
+  oldGolds           SaleOldGold[]
+  advanceAdjustments SaleAdvanceAdjustment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([storeId])
+  @@index([partyId])
+  @@index([saleDate])
+  @@index([status])
+}
+
+model SaleItem {
+  id Int @id @default(autoincrement())
+
+  saleId      Int
+  inventoryId Int
+
+  pieces Int @default(1)
+
+  grossWeight Float @default(0)
+  stoneWeight Float @default(0)
+  netWeight   Float @default(0)
+
+  purity Float?
+  rate   Float  @default(0)
+
+  metalAmount     Float @default(0)
+  makingCharges   Float @default(0)
+  wastageAmount   Float @default(0)
+  stoneAmount     Float @default(0)
+  hallmarkCharges Float @default(0)
+  otherAmount     Float @default(0)
+
+  discount Float @default(0)
+
+  taxableAmount Float @default(0)
+
+  igst      Float @default(0)
+  cgst      Float @default(0)
+  sgst      Float @default(0)
+  taxAmount Float @default(0)
+
+  totalAmount Float @default(0)
+
+  sale      Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  inventory Inventory @relation(fields: [inventoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([saleId, inventoryId])
+  @@index([saleId])
+  @@index([inventoryId])
+}
+
+model SalePayment {
+  id Int @id @default(autoincrement())
+
+  saleId  Int
+  storeId Int
+
+  paymentMode SalePaymentMode
+  amount      Float
+
+  referenceNo String?
+  paymentDate DateTime @default(now())
+  narration   String?
+
+  sale  Sale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([saleId])
+  @@index([storeId])
+}
+
+model SaleOldGold {
+  id Int @id @default(autoincrement())
+
+  saleId Int
+
+  // Existing OLD purchase created from Purchase module
+  purchaseId Int?
+
+  description String?
+
+  grossWeight Float @default(0)
+  stoneWeight Float @default(0)
+  netWeight   Float @default(0)
+
+  purity Float?
+  rate   Float  @default(0)
+
+  metalAmount     Float @default(0)
+  deductionAmount Float @default(0)
+
+  value Float @default(0)
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  purchase Purchase? @relation(fields: [purchaseId], references: [id])
+
+  storeId Int
+  store   Store @relation(fields: [storeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([saleId])
+  @@index([purchaseId])
+  @@index([storeId])
+}
+
+model SaleAdvanceAdjustment {
+  id Int @id @default(autoincrement())
+
+  saleId           Int
+  advanceReceiveId Int
+
+  amount Float
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  advanceReceive AdvanceReceive @relation(fields: [advanceReceiveId], references: [id])
+
+  storeId Int
+  store   Store @relation(fields: [storeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([saleId, advanceReceiveId])
+  @@index([saleId])
+  @@index([advanceReceiveId])
+  @@index([storeId])
 }

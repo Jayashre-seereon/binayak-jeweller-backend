@@ -1,55 +1,7 @@
 import prisma from "../config/db.js";
 import * as inventoryRepo from "../repositories/inventoryRepository.js";
 
-const extractInventoryCodeNumber = (value) => {
-  if (!value) return 0;
-
-  const match = String(value).trim().match(/^INV-(\d+)$/i);
-  return match ? Number(match[1]) : 0;
-};
-
-const extractSequenceNumber = (value, prefix) => {
-  if (!value) return 0;
-  const normalized = value.toString().trim();
-
-  if (prefix) {
-    const match = normalized.match(new RegExp(`^${prefix}-(\\d+)$`, "i"));
-    return match ? Number(match[1]) : 0;
-  }
-
-  const match = normalized.match(/(\d+)$/);
-  return match ? Number(match[1]) : 0;
-};
-
-const getNextInventorySequence = async (storeId) => {
-  const inventories = await prisma.inventory.findMany({
-    where: {
-      storeId: Number(storeId),
-    },
-    select: {
-      inventoryCode: true,
-      tagNo: true,
-      barcodeNo: true,
-    },
-  });
-
-  const nextFromInventoryCode = inventories.reduce(
-    (max, inventory) => Math.max(max, extractInventoryCodeNumber(inventory.inventoryCode)),
-    0
-  );
-
-  const nextFromLabels = inventories.reduce((max, inventory) => {
-    return Math.max(
-      max,
-      extractSequenceNumber(inventory.tagNo, "TAG"),
-      extractSequenceNumber(inventory.tagNo, "OLD"),
-      extractSequenceNumber(inventory.tagNo, "BUL"),
-      extractSequenceNumber(inventory.barcodeNo)
-    );
-  }, 0);
-
-  return Math.max(nextFromInventoryCode, nextFromLabels) + 1;
-};
+const inventoryError = (message) => new Error(message);
 
 const generateTagNo = (sequenceNumber, purchaseType) => {
   let prefix = "TAG";
@@ -83,6 +35,24 @@ const isUniqueInventoryCodeError = (error) => {
 
 const asString = (value) => (value === null || value === undefined ? null : String(value));
 
+const extractInventorySequence = (value) => {
+  if (!value) return 0;
+  const match = String(value).trim().match(/^INV-(\d+)$/i);
+  if (!match) return 0;
+
+  const sequence = Number(match[1]);
+  return Number.isSafeInteger(sequence) ? sequence : 0;
+};
+
+const extractTagSequence = (value) => {
+  if (!value) return 0;
+  const match = String(value).trim().match(/^(?:TAG|OLD|BUL)-(\d+)$/i);
+  if (!match) return 0;
+
+  const sequence = Number(match[1]);
+  return Number.isSafeInteger(sequence) ? sequence : 0;
+};
+
 export const createInventoryService = async (
   purchaseItemId,
   storeId
@@ -106,7 +76,7 @@ export const createInventoryService = async (
   });
 
   if (!purchaseItem) {
-    throw new Error("Purchase item not found");
+    throw inventoryError("The selected purchase item was not found. Please refresh and try again.");
   }
 
   const existingInventory =
@@ -117,47 +87,82 @@ export const createInventoryService = async (
     });
 
   if (existingInventory) {
-    throw new Error(
-      "Inventory already exists for this purchase item"
+    throw inventoryError(
+      "Inventory has already been created for this purchase item."
     );
   }
 
   const purchaseType = purchaseItem.purchase.purchaseType;
   const storeIdNumber = Number(storeId);
-  const maxAttempts = 5;
+  return prisma.$transaction(async (tx) => {
+    const [inventoryMax, tagMax] = await Promise.all([
+      tx.inventory.aggregate({
+        where: {
+          storeId: storeIdNumber,
+        },
+        _max: {
+          inventoryCode: true,
+        },
+      }),
+      tx.inventory.aggregate({
+        where: {
+          storeId: storeIdNumber,
+        },
+        _max: {
+          tagNo: true,
+        },
+      }),
+    ]);
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const nextSequence = await getNextInventorySequence(storeIdNumber);
-    const inventoryCode = `INV-${String(nextSequence).padStart(6, "0")}`;
-    const barcodeNo = generateBarcodeNo(nextSequence);
+    const currentMaxSequence = Math.max(
+      extractInventorySequence(inventoryMax._max.inventoryCode),
+      extractTagSequence(tagMax._max.tagNo)
+    );
+
+    const counter = await tx.storeCounter.upsert({
+      where: {
+        storeId: storeIdNumber,
+      },
+      update: {
+        lastInventoryNumber: Math.max(0, currentMaxSequence),
+      },
+      create: {
+        storeId: storeIdNumber,
+        lastInventoryNumber: currentMaxSequence,
+      },
+      select: {
+        lastInventoryNumber: true,
+      },
+    });
+
+    const sequenceNumber = Math.max(
+      Number(counter.lastInventoryNumber || 0),
+      currentMaxSequence
+    ) + 1;
+
+    if (!Number.isSafeInteger(sequenceNumber)) {
+      throw inventoryError(
+        "Inventory numbers have reached the supported limit. Please reset the store counter or migrate the counter columns to BIGINT."
+      );
+    }
+
+    await tx.storeCounter.update({
+      where: {
+        storeId: storeIdNumber,
+      },
+      data: {
+        lastInventoryNumber: sequenceNumber,
+      },
+    });
+
+    const inventoryCode = `INV-${String(sequenceNumber).padStart(6, "0")}`;
+    const barcodeNo = generateBarcodeNo(sequenceNumber);
     const tagNo =
       purchaseType === "ORNAMENT" ||
       purchaseType === "OLD" ||
       purchaseType === "BULLION"
-        ? generateTagNo(nextSequence, purchaseType)
+        ? generateTagNo(sequenceNumber, purchaseType)
         : null;
-
-    const duplicateCheck = await prisma.inventory.findFirst({
-      where: {
-        storeId: storeIdNumber,
-        OR: [
-          { inventoryCode },
-          ...(tagNo ? [{ tagNo }] : []),
-          ...(barcodeNo ? [{ barcodeNo }] : []),
-        ],
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (duplicateCheck) {
-      if (attempt < maxAttempts) {
-        continue;
-      }
-
-      throw new Error("Unable to generate a unique inventory sequence for this store");
-    }
 
     const data = {
       inventoryCode,
@@ -204,17 +209,27 @@ export const createInventoryService = async (
     };
 
     try {
-      return await inventoryRepo.createInventoryRepo(data);
+      return await tx.inventory.create({
+        data,
+        include: {
+          purchase: true,
+          purchaseItem: true,
+          item: true,
+          product: true,
+          metal: true,
+          purityMaster: true,
+          grade: true,
+          stone: true,
+        },
+      });
     } catch (error) {
-      if (isUniqueInventoryCodeError(error) && attempt < maxAttempts) {
-        continue;
+      if (isUniqueInventoryCodeError(error)) {
+        throw inventoryError("We could not generate a unique inventory number for this store. Please try again.");
       }
 
       throw error;
     }
-  }
-
-  throw new Error("Failed to generate a unique inventory code");
+  });
 };
 
 export const getInventoriesService = async (
@@ -238,7 +253,7 @@ export const getInventoryByIdService = async (
     );
 
   if (!inventory) {
-    throw new Error("Inventory not found");
+    throw inventoryError("Inventory record not found.");
   }
 
   return inventory;
@@ -254,7 +269,7 @@ export const getInventoryByBarcodeService = async (
   );
 
   if (!inventory) {
-    throw new Error("Inventory not found");
+    throw inventoryError("Inventory record not found.");
   }
 
   return inventory;
@@ -272,7 +287,7 @@ export const updateInventoryService = async (
     );
 
   if (!inventory) {
-    throw new Error("Inventory not found");
+    throw inventoryError("Inventory record not found.");
   }
 
   delete data.purchaseItemId;
@@ -295,7 +310,7 @@ export const updateInventoryService = async (
     );
 
   if (result.count === 0) {
-    throw new Error("Inventory update failed");
+    throw inventoryError("We could not update the inventory. Please try again.");
   }
 
   return await inventoryRepo.getInventoryByIdRepo(
@@ -319,7 +334,7 @@ export const updateInventoryStatusService = async (
   ];
 
   if (!allowedStatuses.includes(status)) {
-    throw new Error("Invalid inventory status");
+    throw inventoryError("Please choose a valid inventory status.");
   }
 
   const inventory =
@@ -329,7 +344,7 @@ export const updateInventoryStatusService = async (
     );
 
   if (!inventory) {
-    throw new Error("Inventory not found");
+    throw inventoryError("Inventory record not found.");
   }
 
   const result =
@@ -340,7 +355,7 @@ export const updateInventoryStatusService = async (
     );
 
   if (result.count === 0) {
-    throw new Error("Status update failed");
+    throw inventoryError("We could not update the inventory status. Please try again.");
   }
 
   return await inventoryRepo.getInventoryByIdRepo(
@@ -360,12 +375,12 @@ export const deleteInventoryService = async (
     );
 
   if (!inventory) {
-    throw new Error("Inventory not found");
+    throw inventoryError("Inventory record not found.");
   }
 
   if (inventory.status === "SOLD") {
-    throw new Error(
-      "Sold inventory cannot be deleted"
+    throw inventoryError(
+      "Sold inventory cannot be deleted."
     );
   }
 
@@ -376,7 +391,7 @@ export const deleteInventoryService = async (
     );
 
   if (result.count === 0) {
-    throw new Error("Inventory deletion failed");
+    throw inventoryError("We could not delete the inventory. Please try again.");
   }
 
   return true;

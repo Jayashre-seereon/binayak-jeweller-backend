@@ -17,6 +17,24 @@ export const getAdvanceReceivesRepo = async (storeId) => {
   });
 };
 
+export const getAdvanceReceivesByContactRepo = async (
+  storeId,
+  contactNumber
+) => {
+  return await prisma.advanceReceive.findMany({
+    where: {
+      storeId,
+      contactNumber: {
+        equals: contactNumber,
+        mode: "insensitive",
+      },
+    },
+    orderBy: {
+      id: "desc",
+    },
+  });
+};
+
 export const getAdvanceReceiveByIdRepo = async (id, storeId) => {
   return await prisma.advanceReceive.findFirst({
     where: {

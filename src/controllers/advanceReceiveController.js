@@ -95,6 +95,39 @@ export const getAdvanceReceiveById = async (
   }
 };
 
+export const getAdvanceReceivesByContact = async (
+  req,
+  res
+) => {
+  try {
+    const storeId = getStoreId(req);
+    const contactNumber = String(
+      req.query.contactNumber || ""
+    ).trim();
+
+    const advances =
+      await advanceReceiveService.getAdvanceReceivesByContactService(
+        storeId,
+        contactNumber
+      );
+
+    return res.status(200).json({
+      success: true,
+      data: advances,
+    });
+  } catch (error) {
+    console.error(
+      "Get advance receives by contact error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const updateAdvanceReceive = async (
   req,
   res

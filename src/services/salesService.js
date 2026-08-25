@@ -7,6 +7,7 @@ import {
 } from "../repositories/salesRepository.js";
 
 import { generateSaleInvoiceNo } from "../utils/salesCodeGenerator.js";
+import { numberToWordsIndian } from "../utils/numberToWords.js";
 
 const paymentModes = [
   "CASH",
@@ -18,7 +19,7 @@ const paymentModes = [
 ];
 
 const roundMoney = (value) =>
-  Math.round(Number(value || 0) * 100) / 100;
+  Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
 const formatMoney = (value) =>
   roundMoney(value).toFixed(2);
@@ -43,39 +44,21 @@ const validateInventory = async (tx, inventoryId, storeId) => {
 
   if (!inventory) {
     throw saleError(
-      `Selected inventory item was not found. Please refresh the page and try again.`
+      "Selected inventory item was not found. Please refresh the page and try again."
     );
   }
 
   if (inventory.status !== "AVAILABLE") {
+    const code = inventory.barcodeNo || inventory.tagNo || inventory.inventoryCode || inventory.id;
     throw saleError(
-      `Selected inventory item ${inventory.barcodeNo || inventory.inventoryCode || inventory.id} is not available for sale. Please choose an available item.`
+      `Inventory item "${code}" is already ${inventory.status.toLowerCase()} and cannot be sold.`
     );
   }
 
   return inventory;
 };
 
-const getAdvanceUsedAmount = async (
-  tx,
-  advanceReceiveId
-) => {
-  const result = await tx.saleAdvanceAdjustment.aggregate({
-    where: {
-      advanceReceiveId: Number(advanceReceiveId),
-    },
-    _sum: {
-      amount: true,
-    },
-  });
-
-  return Number(result._sum.amount || 0);
-};
-
-export const createSaleService = async (
-  data,
-  storeId
-) => {
+export const createSaleService = async (data, storeId, user = null) => {
   const numericStoreId = Number(storeId);
 
   if (!numericStoreId) {
@@ -87,23 +70,34 @@ export const createSaleService = async (
     !Array.isArray(data.items) ||
     data.items.length === 0
   ) {
-    throw saleError(
-      "Please add at least one inventory item to continue."
-    );
+    throw saleError("Please add at least one jewellery item to create a sale.");
   }
 
-  const invoiceNo =
-    await generateSaleInvoiceNo(numericStoreId);
+  const store = await prisma.store.findUnique({
+    where: { id: numericStoreId },
+  });
+
+  if (!store) {
+    throw saleError("Store not found.");
+  }
+
+  const invoiceNo = await generateSaleInvoiceNo(numericStoreId);
 
   return prisma.$transaction(
     async (tx) => {
       /*
       ========================================
-      1. CUSTOMER
+      1. CUSTOMER & STORE DETAILS
       ========================================
       */
-
       let partyId = null;
+      let customerName = data.customerName?.trim() || "";
+      let customerPhone = data.customerPhone?.trim() || "";
+      let customerAddress = data.customerAddress?.trim() || "";
+      let customerCity = data.customerCity?.trim() || "";
+      let customerPan = data.customerPan?.trim() || "";
+      let customerGst = data.customerGst?.trim() || "";
+      let customerState = data.customerState?.trim() || "";
 
       if (data.partyId) {
         const party = await tx.partymaster.findFirst({
@@ -120,40 +114,50 @@ export const createSaleService = async (
         }
 
         partyId = Number(data.partyId);
+        customerName = customerName || party.name || "";
+        customerPhone = customerPhone || party.phone || "";
+        customerAddress = customerAddress || party.address || "";
+        customerGst = customerGst || party.gst || "";
       }
+
+      const storeState = (store.state || "ODISHA").trim().toUpperCase();
+      const placeOfSupply = (
+        data.placeOfSupply ||
+        customerState ||
+        storeState
+      ).trim().toUpperCase();
+
+      const isInterState =
+        placeOfSupply !== "" &&
+        placeOfSupply !== storeState;
+
+      const cinNo = data.cinNo || store.cinNo || "U36911OR2005PTCC008217";
+      const storeGst = data.storeGst || store.gstNo || "21AAFCA3795A1Z5";
+      const cashierName =
+        data.cashierName ||
+        user?.name ||
+        user?.email ||
+        store.storeName ||
+        "Cashier";
 
       /*
       ========================================
-      2. VALIDATE INVENTORY
+      2. VALIDATE INVENTORY (AVAILABLE & UNIQUE)
       ========================================
       */
+      const inventoryIds = data.items.map((item) => Number(item.inventoryId));
+      const uniqueInventoryIds = new Set(inventoryIds);
 
-      const inventoryIds = data.items.map(
-        (item) => Number(item.inventoryId)
-      );
-
-      const uniqueInventoryIds =
-        new Set(inventoryIds);
-
-      if (
-        uniqueInventoryIds.size !==
-        inventoryIds.length
-      ) {
+      if (uniqueInventoryIds.size !== inventoryIds.length) {
         throw saleError(
-          "The same inventory item cannot be added more than once."
+          "The same inventory item / barcode cannot be added more than once in the same sale."
         );
       }
 
       const inventories = [];
-
-      for (const inventoryId of inventoryIds) {
-        const inventory = await validateInventory(
-          tx,
-          inventoryId,
-          numericStoreId
-        );
-
-        inventories.push(inventory);
+      for (const invId of inventoryIds) {
+        const inv = await validateInventory(tx, invId, numericStoreId);
+        inventories.push(inv);
       }
 
       /*
@@ -161,414 +165,265 @@ export const createSaleService = async (
       3. CALCULATE SALE ITEMS
       ========================================
       */
+      const saleItems = data.items.map((item, index) => {
+        const inventory = inventories[index];
 
-      const saleItems = data.items.map(
-        (item, index) => {
-          const inventory = inventories[index];
-
-          return {
-            inventoryId: inventory.id,
-
-            pieces: Number(item.pieces || 1),
-
-            grossWeight: Number(
-              item.grossWeight ??
-                inventory.grossWeight ??
-                0
-            ),
-
-            stoneWeight: Number(
-              item.stoneWeight ??
-                inventory.stoneWeight ??
-                0
-            ),
-
-            netWeight: Number(
-              item.netWeight ??
-                inventory.netWeight ??
-                0
-            ),
-
-            purity:
-              item.purity !== undefined
-                ? Number(item.purity)
-                : inventory.purity,
-
-            rate: Number(item.rate || 0),
-
-            metalAmount: Number(
-              item.metalAmount || 0
-            ),
-
-            makingCharges: Number(
-              item.makingCharges || 0
-            ),
-
-            wastageAmount: Number(
-              item.wastageAmount || 0
-            ),
-
-            stoneAmount: Number(
-              item.stoneAmount || 0
-            ),
-
-            hallmarkCharges: Number(
-              item.hallmarkCharges || 0
-            ),
-
-            otherAmount: Number(
-              item.otherAmount || 0
-            ),
-
-            discount: Number(
-              item.discount || 0
-            ),
-
-            taxableAmount: Number(
-              item.taxableAmount ||
-                item.totalAmount ||
-                0
-            ),
-
-            igst: Number(item.igst || 0),
-
-            cgst: Number(item.cgst || 0),
-
-            sgst: Number(item.sgst || 0),
-
-            taxAmount: Number(
-              item.taxAmount || 0
-            ),
-
-            totalAmount: Number(
-              item.totalAmount || 0
-            ),
-          };
-        }
-      );
-
-      /*
-      ========================================
-      4. OLD GOLD
-      ========================================
-      */
-
-      const oldGolds = [];
-
-      let oldGoldAmount = 0;
-
-      if (
-        data.oldGold &&
-        Array.isArray(data.oldGold)
-      ) {
-        for (const oldGold of data.oldGold) {
-          const value = Number(
-            oldGold.value || 0
-          );
-
-          if (value <= 0) {
-            throw saleError(
-              "Old gold amount must be greater than zero."
-            );
-          }
-
-          oldGolds.push({
-            purchaseId:
-              oldGold.purchaseId
-                ? Number(oldGold.purchaseId)
-                : null,
-
-            description:
-              oldGold.description || null,
-
-            grossWeight: Number(
-              oldGold.grossWeight || 0
-            ),
-
-            stoneWeight: Number(
-              oldGold.stoneWeight || 0
-            ),
-
-            netWeight: Number(
-              oldGold.netWeight || 0
-            ),
-
-            purity:
-              oldGold.purity !== undefined
-                ? Number(oldGold.purity)
-                : null,
-
-            rate: Number(
-              oldGold.rate || 0
-            ),
-
-            metalAmount: Number(
-              oldGold.metalAmount || 0
-            ),
-
-            deductionAmount: Number(
-              oldGold.deductionAmount || 0
-            ),
-
-            value,
-
-            storeId: numericStoreId,
-          });
-
-          oldGoldAmount += value;
-        }
-      }
-
-      /*
-      ========================================
-      5. ADVANCE
-      ========================================
-      */
-
-      const advanceAdjustments = [];
-
-      let advanceAmount = 0;
-
-      if (
-        data.advanceAdjustments &&
-        Array.isArray(
-          data.advanceAdjustments
-        )
-      ) {
-        for (
-          const adjustment of data.advanceAdjustments
-        ) {
-          const advance =
-            await tx.advanceReceive.findFirst({
-              where: {
-                id: Number(
-                  adjustment.advanceReceiveId
-                ),
-                storeId: numericStoreId,
-              },
-            });
-
-          if (!advance) {
-            throw saleError(
-              "The selected advance receipt was not found for this store."
-            );
-          }
-
-          const requestedAmount = Number(
-            adjustment.amount || 0
-          );
-
-          if (requestedAmount <= 0) {
-            throw saleError(
-              "Advance adjustment amount must be greater than zero."
-            );
-          }
-
-          const alreadyUsed =
-            await getAdvanceUsedAmount(
-              tx,
-              advance.id
-            );
-
-          const available =
-            Number(advance.amount) -
-            alreadyUsed;
-
-          if (
-            requestedAmount >
-            available
-          ) {
-            throw saleError(
-              `Only ${formatMoney(available)} is available from the selected advance receipt. Please reduce the adjustment amount.`
-            );
-          }
-
-          advanceAdjustments.push({
-            advanceReceiveId: advance.id,
-            amount: requestedAmount,
-            storeId: numericStoreId,
-          });
-
-          advanceAmount +=
-            requestedAmount;
-        }
-      }
-
-      /*
-      ========================================
-      6. TOTALS
-      ========================================
-      */
-
-      const subtotal = roundMoney(
-        saleItems.reduce(
-          (sum, item) => sum + Number(item.totalAmount || 0),
-          0
-        )
-      );
-
-      const discount = roundMoney(data.discount || 0);
-
-      const igst = roundMoney(data.igst || 0);
-
-      const cgst = roundMoney(data.cgst || 0);
-
-      const sgst = roundMoney(data.sgst || 0);
-
-      const taxAmount =
-        roundMoney(data.taxAmount || 0) ||
-        roundMoney(igst + cgst + sgst);
-
-      const roundOff = roundMoney(data.roundOff || 0);
-
-      const grossTotal = roundMoney(
-        subtotal - discount + taxAmount + roundOff
-      );
-
-      const payableAmount = roundMoney(
-        grossTotal - oldGoldAmount - advanceAmount
-      );
-
-      if (payableAmount < 0) {
-        throw saleError(
-          "Old gold and advance adjustments cannot be greater than the sale total. Please reduce the adjustment values."
+        const pieces = Math.max(1, Number(item.pieces || 1));
+        const grossWeight = Number(
+          item.grossWeight !== undefined && item.grossWeight !== null && item.grossWeight !== ""
+            ? item.grossWeight
+            : inventory.grossWeight ?? 0
         );
-      }
+        const stoneWeight = Number(
+          item.stoneWeight !== undefined && item.stoneWeight !== null && item.stoneWeight !== ""
+            ? item.stoneWeight
+            : inventory.stoneWeight ?? 0
+        );
+        const netWeight = Number(
+          item.netWeight !== undefined && item.netWeight !== null && item.netWeight !== ""
+            ? item.netWeight
+            : inventory.netWeight ?? Math.max(0, grossWeight - stoneWeight)
+        );
+
+        const rate = Number(item.rate || 0);
+        const metalAmount = roundMoney(netWeight * rate);
+
+        const makingChargeType = (item.makingChargeType || "PERCENT").toUpperCase();
+        const makingChargeRate = Number(item.makingChargeRate ?? item.makingChargePercent ?? 0);
+
+        let makingCharges = 0;
+        if (item.makingCharges !== undefined && item.makingCharges !== null && Number(item.makingCharges) > 0 && makingChargeRate === 0) {
+          makingCharges = roundMoney(Number(item.makingCharges));
+        } else if (makingChargeType === "PERCENT") {
+          makingCharges = roundMoney((metalAmount * makingChargeRate) / 100);
+        } else if (makingChargeType === "PER_GRAM") {
+          makingCharges = roundMoney(netWeight * makingChargeRate);
+        } else {
+          makingCharges = roundMoney(Number(item.makingCharges || makingChargeRate || 0));
+        }
+
+        const stoneAmount = roundMoney(Number(item.stoneAmount || 0));
+        const hallmarkCharges = roundMoney(Number(item.hallmarkCharges || 0));
+        const otherCharges = roundMoney(
+          Number(item.otherCharges ?? item.otherAmount ?? 0)
+        );
+        const itemDiscount = roundMoney(Number(item.discount || 0));
+
+        const itemTotalAmount = roundMoney(
+          metalAmount +
+          makingCharges +
+          stoneAmount +
+          hallmarkCharges +
+          otherCharges -
+          itemDiscount
+        );
+
+        const particulars =
+          item.particulars?.trim() ||
+          inventory.item?.name ||
+          inventory.product?.name ||
+          "Jewellery Item";
+
+        const itemCode =
+          item.itemCode?.trim() ||
+          inventory.barcodeNo ||
+          inventory.tagNo ||
+          inventory.inventoryCode ||
+          "";
+
+        const huidNo = item.huidNo?.trim() || inventory.huidNo || null;
+        const hsnCode = item.hsnCode?.trim() || inventory.hsnCode || "711319";
+        const purityName =
+          item.purityName?.trim() ||
+          inventory.purityMaster?.name ||
+          (inventory.purity ? `${inventory.purity}K` : "22K");
+
+        return {
+          inventoryId: inventory.id,
+          particulars,
+          itemCode,
+          huidNo,
+          hsnCode,
+          purityName,
+          pieces,
+          grossWeight,
+          stoneWeight,
+          netWeight,
+          purity:
+            item.purity !== undefined && item.purity !== null
+              ? Number(item.purity)
+              : inventory.purity,
+          rate,
+          metalAmount,
+          makingCharges,
+          makingChargeType,
+          makingChargeRate,
+          stoneAmount,
+          hallmarkCharges,
+          otherCharges,
+          otherAmount: otherCharges,
+          discount: itemDiscount,
+          taxableAmount: itemTotalAmount,
+          totalAmount: itemTotalAmount,
+          cgst: 0,
+          sgst: 0,
+          igst: 0,
+          taxAmount: 0,
+        };
+      });
 
       /*
       ========================================
-      7. PAYMENT
+      4. SUMMARY & TAX CALCULATIONS (GST)
       ========================================
       */
+      const grossAmount = roundMoney(
+        saleItems.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)
+      );
 
+      const offerDiscount = roundMoney(Number(data.offerDiscount || 0));
+      const discount = roundMoney(Number(data.discount || 0));
+      const taxableAmount = roundMoney(
+        Math.max(0, grossAmount - offerDiscount - discount)
+      );
+
+      let cgstPercent = 0;
+      let cgstAmount = 0;
+      let sgstPercent = 0;
+      let sgstAmount = 0;
+      let igstPercent = 0;
+      let igstAmount = 0;
+
+      if (isInterState) {
+        igstPercent = 3.0;
+        igstAmount = roundMoney((taxableAmount * 3.0) / 100);
+      } else {
+        cgstPercent = 1.5;
+        cgstAmount = roundMoney((taxableAmount * 1.5) / 100);
+        sgstPercent = 1.5;
+        sgstAmount = roundMoney((taxableAmount * 1.5) / 100);
+      }
+
+      const totalTax = roundMoney(cgstAmount + sgstAmount + igstAmount);
+      const subTotal = roundMoney(taxableAmount + totalTax);
+      const lessUrd = roundMoney(Number(data.lessUrd || 0));
+
+      const unroundedNet = roundMoney(subTotal - lessUrd);
+      let roundOff = 0;
+      if (data.roundOff !== undefined && data.roundOff !== null && data.roundOff !== "") {
+        roundOff = roundMoney(Number(data.roundOff));
+      } else {
+        const roundedInt = Math.round(unroundedNet);
+        roundOff = roundMoney(roundedInt - unroundedNet);
+      }
+
+      const netPayable = roundMoney(Math.max(0, unroundedNet + roundOff));
+      const amountInWords = numberToWordsIndian(netPayable);
+
+      /*
+      ========================================
+      5. PAYMENTS
+      ========================================
+      */
       const payments = [];
-
       let paidAmount = 0;
 
-      if (
-        data.payments &&
-        Array.isArray(data.payments)
-      ) {
-        for (
-          const payment of data.payments
-        ) {
-          if (
-            !paymentModes.includes(
-              payment.paymentMode
-            )
-          ) {
-            throw saleError(
-              `Payment mode "${payment.paymentMode}" is not supported. Please choose a valid payment method.`
-            );
+      if (data.payments && Array.isArray(data.payments)) {
+        for (const payment of data.payments) {
+          const mode = (payment.paymentMode || "CASH").toUpperCase();
+          if (!paymentModes.includes(mode)) {
+            throw saleError(`Payment mode "${payment.paymentMode}" is not supported.`);
           }
 
-          const amount = roundMoney(payment.amount || 0);
-
-          if (amount <= 0) {
-            throw saleError(
-              "Payment amount must be greater than zero."
-            );
+          const amount = roundMoney(Number(payment.amount || 0));
+          if (amount > 0) {
+            payments.push({
+              storeId: numericStoreId,
+              paymentMode: mode,
+              amount,
+              paymentChannel: payment.paymentChannel || null,
+              transactionId: payment.transactionId || payment.referenceNo || null,
+              referenceNo: payment.referenceNo || payment.transactionId || null,
+              paymentDate: payment.paymentDate ? new Date(payment.paymentDate) : new Date(),
+              description: payment.description || payment.narration || null,
+              narration: payment.narration || payment.description || null,
+            });
+            paidAmount = roundMoney(paidAmount + amount);
           }
-
-          payments.push({
-            paymentMode:
-              payment.paymentMode,
-
-            amount,
-
-            referenceNo:
-              payment.referenceNo ||
-              null,
-
-            paymentDate:
-              payment.paymentDate
-                ? new Date(
-                    payment.paymentDate
-                  )
-                : new Date(),
-
-            narration:
-              payment.narration ||
-              null,
-
-            storeId: numericStoreId,
-          });
-
-          paidAmount += amount;
         }
       }
 
-      if (
-        paidAmount >
-        payableAmount
-      ) {
+      if (paidAmount > netPayable) {
         throw saleError(
-          `Payment cannot exceed payable amount. Paid ${formatMoney(paidAmount)} but only ${formatMoney(payableAmount)} is payable.`
+          `Payment amount (${formatMoney(paidAmount)}) cannot exceed net payable (${formatMoney(netPayable)}).`
         );
       }
 
-      const dueAmount = roundMoney(payableAmount - paidAmount);
+      const dueAmount = roundMoney(Math.max(0, netPayable - paidAmount));
 
       /*
       ========================================
-      8. CREATE SALE
+      6. CREATE SALE IN DATABASE
       ========================================
       */
-
       const sale = await createSaleRepo(
         {
           invoiceNo,
-
-          storeId:
-            numericStoreId,
-
+          storeId: numericStoreId,
           partyId,
+          saleDate: data.saleDate ? new Date(data.saleDate) : new Date(),
+          status: "COMPLETED",
 
-          saleDate: data.saleDate
-            ? new Date(data.saleDate)
-            : new Date(),
+          customerName: customerName || null,
+          customerPhone: customerPhone || null,
+          customerAddress: customerAddress || null,
+          customerCity: customerCity || null,
+          customerPan: customerPan || null,
+          customerGst: customerGst || null,
+          customerState: customerState || null,
+          placeOfSupply,
 
-          customerName:
-            data.customerName || null,
+          cinNo,
+          storeGst,
+          cashierName,
+          irnNo: data.irnNo || null,
+          isCustomerCopy: data.isCustomerCopy !== undefined ? Boolean(data.isCustomerCopy) : true,
 
-          customerPhone:
-            data.customerPhone || null,
-
-          customerAddress:
-            data.customerAddress ||
-            null,
-
-          customerGst:
-            data.customerGst || null,
-
-          subtotal,
-
+          grossAmount,
+          offerDiscount,
           discount,
+          taxableAmount,
 
-          igst,
+          cgstPercent,
+          cgstAmount,
+          sgstPercent,
+          sgstAmount,
+          igstPercent,
+          igstAmount,
+          totalTax,
 
-          cgst,
-
-          sgst,
-
-          taxAmount,
-
+          subTotal,
+          lessUrd,
           roundOff,
 
-          grossTotal,
+          // Legacy fields for backward compatibility
+          subtotal: grossAmount,
+          igst: igstAmount,
+          cgst: cgstAmount,
+          sgst: sgstAmount,
+          taxAmount: totalTax,
+          grossTotal: netPayable,
+          oldGoldAmount: 0,
+          advanceAmount: 0,
 
-          oldGoldAmount,
-
-          advanceAmount,
-
-          payableAmount,
-
+          payableAmount: netPayable,
+          netPayable,
           paidAmount,
-
           dueAmount,
+          amountInWords,
 
-          narration:
-            data.narration || null,
+          termsAccepted: true,
+          narration: data.narration || null,
 
           items: {
             create: saleItems,
@@ -577,31 +432,20 @@ export const createSaleService = async (
           payments: {
             create: payments,
           },
-
-          oldGolds: {
-            create: oldGolds,
-          },
-
-          advanceAdjustments: {
-            create:
-              advanceAdjustments,
-          },
         },
         tx
       );
 
       /*
       ========================================
-      9. INVENTORY -> SOLD
+      7. UPDATE INVENTORY STATUS -> SOLD
       ========================================
       */
-
       for (const inventory of inventories) {
         await tx.inventory.update({
           where: {
             id: inventory.id,
           },
-
           data: {
             status: "SOLD",
           },
@@ -611,26 +455,17 @@ export const createSaleService = async (
       return sale;
     },
     {
-      isolationLevel:
-        "Serializable",
+      isolationLevel: "Serializable",
     }
   );
 };
 
-export const getSalesService = async (
-  storeId
-) => {
+export const getSalesService = async (storeId) => {
   return getSalesRepo(Number(storeId));
 };
 
-export const getSaleByIdService = async (
-  id,
-  storeId
-) => {
-  const sale = await getSaleByIdRepo(
-    Number(id),
-    Number(storeId)
-  );
+export const getSaleByIdService = async (id, storeId) => {
+  const sale = await getSaleByIdRepo(Number(id), Number(storeId));
 
   if (!sale) {
     throw saleError(
@@ -641,10 +476,6 @@ export const getSaleByIdService = async (
   return sale;
 };
 
-export const getSaleCountService = async (
-  storeId
-) => {
-  return getSaleCountRepo(
-    Number(storeId)
-  );
+export const getSaleCountService = async (storeId) => {
+  return getSaleCountRepo(Number(storeId));
 };

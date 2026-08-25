@@ -73,6 +73,7 @@ export const getPurchasesByStoreAndPhone = async (
     include: {
       party: true,
       employee: true,
+      payments: true,
       items: {
         include: {
           item: true,

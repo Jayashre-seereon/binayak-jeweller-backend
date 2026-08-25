@@ -116,6 +116,7 @@ export const generatePurchasePdf = async (id, storeId, res) => {
       party: true,
       employee: true,
       store: true,
+      payments: true,
       items: {
         include: {
           item: true,
@@ -240,15 +241,16 @@ doc.save().fillColor(COLORS.gold).rect(MARGIN, y, CONTENT_WIDTH, 3).fill().resto
   const tableX = MARGIN;
 
   const columns = [
-    { key: "sl", title: "SL", width: 24, align: "center" },
-    { key: "product", title: "PRODUCT", width: 80, align: "left" },
-    { key: "metal", title: "METAL", width: 58, align: "left" },
-    { key: "purity", title: "PURITY", width: 45, align: "center" },
-    { key: "qty", title: "QTY", width: 33, align: "center" },
-    { key: "gross", title: "GROSS", width: 55, align: "right" },
-    { key: "net", title: "NET", width: 50, align: "right" },
-    { key: "rate", title: "RATE", width: 58, align: "right" },
-    { key: "amount", title: "AMOUNT", width: 74, align: "right" }
+    { key: "sl", title: "SL", width: 22, align: "center" },
+    { key: "product", title: "PRODUCT / ITEM", width: 105, align: "left" },
+    { key: "hsn", title: "HSN", width: 44, align: "center" },
+    { key: "purity", title: "PURITY", width: 38, align: "center" },
+    { key: "pcs", title: "PCS", width: 26, align: "center" },
+    { key: "gross", title: "GROSS", width: 52, align: "right" },
+    { key: "net", title: "NET", width: 52, align: "right" },
+    { key: "rate", title: "RATE", width: 54, align: "right" },
+    { key: "other", title: "OTHER/STN", width: 54, align: "right" },
+    { key: "amount", title: "TOTAL", width: 80, align: "right" }
   ];
 
   const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
@@ -296,8 +298,6 @@ const SAFE_BOTTOM = 700;
   const maybePageBreak = (neededHeight, continued = true) => {
     if (y + neededHeight > SAFE_BOTTOM) {
       if (continued) {
-        // Close off the table border for everything drawn on this page
-        // before we leave it.
         closeTableSegment(y);
       }
 
@@ -331,15 +331,22 @@ const SAFE_BOTTOM = 700;
       drawFilledBox(doc, tableX, rowY, tableWidth, ROW_HEIGHT, COLORS.zebra, 0);
     }
 
+    const prodName = (item.item?.name || item.product?.name || "Purchase Item").toUpperCase();
+    const otherVal = Number(item.stoneAmount || 0) + Number(item.otherAmount || 0);
+    const purityVal = item.purityMaster?.name || (item.purity ? `${item.purity}K` : "-");
+    const hsnVal = item.hsnCode || "711319";
+    const huidVal = item.huidNo ? `HUID: ${item.huidNo}` : "";
+
     const values = [
       index + 1,
-      item.product?.name || "-",
-      item.metal?.name || "-",
-      item.purity !== null && item.purity !== undefined ? item.purity : "-",
+      huidVal ? `${prodName}\n${huidVal}` : prodName,
+      hsnVal,
+      purityVal,
       item.pieces || 1,
       formatNumber(item.grossWeight),
       formatNumber(item.netWeight),
       formatMoney(item.rate),
+      formatMoney(otherVal),
       formatMoney(item.totalAmount)
     ];
 
@@ -348,11 +355,11 @@ const SAFE_BOTTOM = 700;
       const isAmount = column.key === "amount";
       doc
         .font(isAmount ? "Helvetica-Bold" : "Helvetica")
-        .fontSize(7.6)
+        .fontSize(columnIndex === 1 ? 7.2 : 7.6)
         .fillColor(COLORS.ink)
-        .text(String(values[columnIndex]), x + 4, rowY + 7, {
-          width: column.width - 8,
-          height: ROW_HEIGHT - 10,
+        .text(String(values[columnIndex]), x + 3, rowY + (columnIndex === 1 ? 5 : 8), {
+          width: column.width - 6,
+          height: ROW_HEIGHT - 6,
           align: column.align,
           ellipsis: true
         });
@@ -365,73 +372,10 @@ const SAFE_BOTTOM = 700;
     y += ROW_HEIGHT;
   });
 
- closeTableSegment(y);
-const specialItems = purchase.items.filter(
-    (item) =>
-      item.huidNo ||
-      item.touchPercentage ||
-      item.fineness ||
-      item.deductionWeight ||
-      item.makingCharges ||
-      item.wastagePercentage ||
-      item.hallmarkCharges ||
-      item.tagNo ||
-      item.barSerialNo ||
-      item.assayCertNo
-  );
+  closeTableSegment(y);
 
-  if (specialItems.length > 0) {
-    y += 20;
-    drawSectionTitle(doc, "Item Details", MARGIN, y, CONTENT_WIDTH);
-    y += 22;
-
-    specialItems.forEach((item, index) => {
-      const chipHeight = 96;
-      maybePageBreak(chipHeight, false);
-
-      const cardY = y;
-      drawFilledBox(doc, MARGIN, cardY, CONTENT_WIDTH, chipHeight, COLORS.zebra, 4);
-      drawBox(doc, MARGIN, cardY, CONTENT_WIDTH, chipHeight, 4, COLORS.border);
-
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(8.2)
-        .fillColor(COLORS.gold)
-        .text(`Item ${index + 1} — ${item.product?.name || "Purchase Item"}`, MARGIN + 12, cardY + 10);
-
-      const detailColumns = [
-        ["HUID", item.huidNo || "-"],
-        ["Touch %", item.touchPercentage !== null && item.touchPercentage !== undefined ? formatNumber(item.touchPercentage, 2) : "-"],
-        ["Fineness", item.fineness !== null && item.fineness !== undefined ? formatNumber(item.fineness, 2) : "-"],
-        ["Deduction", formatNumber(item.deductionWeight)],
-        ["Making", formatMoney(item.makingCharges)],
-        ["Wastage %", formatNumber(item.wastagePercentage, 2)],
-        ["Hallmark", formatMoney(item.hallmarkCharges)],
-        ["Tag No", item.tagNo || "-"],
-        ["Bar Serial", item.barSerialNo || "-"],
-        ["Assay Cert", item.assayCertNo || "-"]
-      ];
-
-      const detailWidth = (CONTENT_WIDTH - 24) / 2;
-      const detailStartY = cardY + 28;
-
-      detailColumns.forEach((detail, detailIndex) => {
-        const row = Math.floor(detailIndex / 2);
-        const col = detailIndex % 2;
-        const detailX = MARGIN + 12 + col * detailWidth;
-        const detailY = detailStartY + row * 15.5;
-
-        doc.font("Helvetica-Bold").fontSize(7).fillColor(COLORS.slate).text(`${detail[0]}`, detailX, detailY, { width: 68 });
-        doc.font("Helvetica").fontSize(7).fillColor(COLORS.ink).text(detail[1], detailX + 68, detailY, { width: detailWidth - 72 });
-      });
-
-      y += chipHeight + 10;
-    });
-  }
-
- 
-  const summaryHeight = 220;
- if (y + summaryHeight > SAFE_BOTTOM) {
+  const summaryHeight = 200;
+  if (y + summaryHeight > SAFE_BOTTOM) {
     doc.addPage();
     y = MARGIN;
   }
@@ -453,10 +397,10 @@ const specialItems = purchase.items.filter(
 
   drawLine(doc, summaryX + 14, summaryY + 27, summaryX + summaryWidth - 14, summaryY + 27, 0.5, COLORS.border);
 
-  let totalY = summaryY + 38;
+  let totalY = summaryY + 36;
 
   const summaryRow = (label, value, opts = {}) => {
-    const { bold = false, color = COLORS.ink, size = 8.5 } = opts;
+    const { bold = false, color = COLORS.ink, size = 8.2 } = opts;
     doc
       .font(bold ? "Helvetica-Bold" : "Helvetica")
       .fontSize(size)
@@ -472,25 +416,36 @@ const specialItems = purchase.items.filter(
         align: "right"
       });
 
-    totalY += bold ? 24 : 17.5;
+    totalY += bold ? 20 : 15;
   };
 
-  summaryRow("Subtotal", formatMoney(purchase.subtotal));
-  summaryRow("Discount", formatMoney(purchase.discount));
-  summaryRow("IGST", formatMoney(purchase.igst));
-  summaryRow("CGST", formatMoney(purchase.cgst));
-  summaryRow("SGST", formatMoney(purchase.sgst));
-  summaryRow("Tax Amount", formatMoney(purchase.taxAmount));
-  summaryRow("Round Off", formatMoney(purchase.roundOff));
+  const taxableVal = purchase.taxableAmount || (purchase.grossAmount ? purchase.grossAmount - purchase.discount : purchase.subtotal);
+  summaryRow("Gross Amount", formatMoney(purchase.grossAmount || purchase.subtotal));
+  if (Number(purchase.discount || 0) > 0) {
+    summaryRow("Discount", formatMoney(purchase.discount));
+  }
+  summaryRow("Taxable Amount", formatMoney(taxableVal));
+  if (Number(purchase.cgst || 0) > 0 || Number(purchase.sgst || 0) > 0) {
+    summaryRow("CGST (1.5%)", formatMoney(purchase.cgst));
+    summaryRow("SGST (1.5%)", formatMoney(purchase.sgst));
+  } else if (Number(purchase.igst || 0) > 0) {
+    summaryRow("IGST (3.0%)", formatMoney(purchase.igst));
+  }
+  if (Number(purchase.taxAmount || 0) > 0) {
+    summaryRow("Total Tax", formatMoney(purchase.taxAmount));
+  }
+  if (Number(purchase.roundOff || 0) !== 0) {
+    summaryRow("Round Off", formatMoney(purchase.roundOff));
+  }
 
-  drawLine(doc, summaryX + 14, totalY - 6, summaryX + summaryWidth - 14, totalY - 6, 0.7, COLORS.border);
-  totalY += 6;
+  drawLine(doc, summaryX + 14, totalY - 4, summaryX + summaryWidth - 14, totalY - 4, 0.7, COLORS.border);
+  totalY += 4;
 
-  // Grand total gets its own filled band so it can't be missed
-  drawFilledBox(doc, summaryX + 8, totalY - 5, summaryWidth - 16, 24, COLORS.totalFill, 4);
-  summaryRow("GRAND TOTAL", formatMoney(purchase.totalAmount), { bold: true, size: 9.8 });
+  const netPayableVal = purchase.netPayable || purchase.totalAmount;
+  drawFilledBox(doc, summaryX + 8, totalY - 4, summaryWidth - 16, 22, COLORS.totalFill, 4);
+  summaryRow("NET PAYABLE", formatMoney(netPayableVal), { bold: true, size: 9.2 });
 
-  summaryRow("Paid Amount", formatMoney(purchase.paidAmount), { color: COLORS.paidGreen });
+  summaryRow("Paid Amount", formatMoney(purchase.paidAmount), { color: COLORS.paidGreen, bold: true });
   summaryRow("Due Amount", formatMoney(purchase.dueAmount), { bold: true, color: COLORS.dueRed });
 
   // =========================================================
@@ -500,11 +455,25 @@ const specialItems = purchase.items.filter(
   const paymentX = MARGIN;
   const paymentWidth = CONTENT_WIDTH - summaryWidth - 15;
 
-  drawAccentCard(doc, paymentX, summaryY, paymentWidth, 96, "Payment Details");
+  const paymentCardHeight = purchase.payments?.length ? Math.min(summaryHeight, 60 + purchase.payments.length * 22) : 100;
+  drawAccentCard(doc, paymentX, summaryY, paymentWidth, paymentCardHeight, "Payment Details");
 
-  drawLabelValue(doc, "Mode", purchase.paymentMode || "-", paymentX + 14, summaryY + 38, 78, paymentWidth - 96);
-  drawLabelValue(doc, "RCM", purchase.isRCM ? "Yes" : "No", paymentX + 14, summaryY + 56, 78, paymentWidth - 96);
-  drawLabelValue(doc, "Place of Supply", purchase.placeOfSupply || "-", paymentX + 14, summaryY + 74, 78, paymentWidth - 96);
+  let pY = summaryY + 34;
+  if (purchase.payments && purchase.payments.length > 0) {
+    purchase.payments.forEach((pmt, pIdx) => {
+      const modeLabel = pmt.paymentChannel ? `${pmt.paymentMode} (${pmt.paymentChannel})` : pmt.paymentMode;
+      const refStr = pmt.transactionId ? ` | Ref: ${pmt.transactionId}` : "";
+      drawLabelValue(doc, `${modeLabel}`, `Rs. ${formatMoney(pmt.amount)}${refStr}`, paymentX + 14, pY, 90, paymentWidth - 108);
+      pY += 18;
+    });
+  } else {
+    drawLabelValue(doc, "Mode", purchase.paymentMode || "CASH", paymentX + 14, pY, 78, paymentWidth - 96);
+    pY += 18;
+    drawLabelValue(doc, "Paid Amount", `Rs. ${formatMoney(purchase.paidAmount)}`, paymentX + 14, pY, 78, paymentWidth - 96);
+    pY += 18;
+  }
+
+  drawLabelValue(doc, "Place of Supply", purchase.placeOfSupply || "-", paymentX + 14, pY, 90, paymentWidth - 108);
 
   // =========================================================
   // NARRATION

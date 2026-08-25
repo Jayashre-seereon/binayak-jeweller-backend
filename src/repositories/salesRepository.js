@@ -1,6 +1,7 @@
 import prisma from "../config/db.js";
 
 const saleInclude = {
+  store: true,
   party: true,
 
   items: {

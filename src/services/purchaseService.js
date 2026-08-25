@@ -59,6 +59,9 @@ export const createPurchase = async (data, storeId) => {
 
   
 
+
+  
+
   if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
     throw purchaseError("Please add at least one purchase item.");
   }
@@ -71,14 +74,14 @@ export const createPurchase = async (data, storeId) => {
     gradeId: item.gradeId ? Number(item.gradeId) : null,
     stoneId: item.stoneId ? Number(item.stoneId) : null,
 
-    pieces: item.pieces ? Number(item.pieces) : null,                    // NEW
+    pieces: item.pieces ? Number(item.pieces) : null,
 
     grossWeight: Number(item.grossWeight || 0),
     stoneWeight: Number(item.stoneWeight || 0),
     netWeight: Number(item.netWeight || 0),
 
     dustWeight: Number(item.dustWeight || 0),
-    deductionWeight: Number(item.deductionWeight || 0),               // NEW
+    deductionWeight: Number(item.deductionWeight || 0),
     pureWeight: Number(item.pureWeight || 0),
     actualWeight: Number(item.actualWeight || 0),
     balanceWeight: Number(item.balanceWeight || 0),
@@ -87,29 +90,53 @@ export const createPurchase = async (data, storeId) => {
       item.purity !== undefined && item.purity !== null && item.purity !== ""
         ? Number(item.purity)
         : null,
-    touchPercentage: item.touchPercentage ? Number(item.touchPercentage) : null, // NEW
-    fineness: item.fineness ? Number(item.fineness) : null,           // NEW
+    touchPercentage: item.touchPercentage ? Number(item.touchPercentage) : null,
+    fineness: item.fineness ? Number(item.fineness) : null,
 
     rate: Number(item.rate || 0),
 
-    makingCharges: Number(item.makingCharges || 0),                   // NEW
-    wastagePercentage: Number(item.wastagePercentage || 0),           // NEW
-    hallmarkCharges: Number(item.hallmarkCharges || 0),                // NEW
+    makingCharges: Number(item.makingCharges || 0),
+    wastagePercentage: Number(item.wastagePercentage || 0),
+    hallmarkCharges: Number(item.hallmarkCharges || 0),
 
     metalAmount: Number(item.metalAmount || 0),
     stoneAmount: Number(item.stoneAmount || 0),
     otherAmount: Number(item.otherAmount || 0),
-    discount: Number(item.discount || 0),                              // NEW
+    discount: Number(item.discount || 0),
     totalAmount: Number(item.totalAmount || 0),
 
-    huidNo: item.huidNo || null,                                       // NEW
-    barSerialNo: item.barSerialNo || null,                             // NEW
-    assayCertNo: item.assayCertNo || null,                             // NEW
+    huidNo: item.huidNo || null,
+    hsnCode: item.hsnCode || "711319",
+    barSerialNo: item.barSerialNo || null,
+    assayCertNo: item.assayCertNo || null,
     vatType: item.vatType || null,
     narration: item.narration || null,
-    itemPhoto: item.itemPhoto || null,                                 // NEW
-    extraDetails: item.extraDetails || null                            // NEW
+    itemPhoto: item.itemPhoto || null,
+    extraDetails: item.extraDetails || null
   }));
+
+  const rawPayments = Array.isArray(data.payments) && data.payments.length > 0
+    ? data.payments
+    : Number(data.paidAmount || 0) > 0
+      ? [{ paymentMode: data.paymentMode || "CASH", amount: Number(data.paidAmount) }]
+      : [];
+
+  const purchasePayments = rawPayments
+    .filter((p) => Number(p.amount || 0) > 0)
+    .map((p) => ({
+      storeId: numericStoreId,
+      paymentMode: p.paymentMode || "CASH",
+      paymentChannel: p.paymentChannel || null,
+      amount: Math.round((Number(p.amount || 0) + Number.EPSILON) * 100) / 100,
+      transactionId: p.transactionId || p.referenceNo || null,
+      referenceNo: p.referenceNo || p.transactionId || null,
+      description: p.description || null,
+      paymentDate: p.paymentDate ? new Date(p.paymentDate) : new Date(),
+      narration: p.narration || null,
+    }));
+
+  const totalPaid = Math.round((purchasePayments.reduce((s, p) => s + Number(p.amount || 0), 0) + Number.EPSILON) * 100) / 100;
+  const netPayable = Number(data.netPayable || data.totalAmount || 0);
 
   const buildPurchaseData = (invoiceNo) => ({
     invoiceNo,
@@ -129,6 +156,8 @@ export const createPurchase = async (data, storeId) => {
     customerIdNumber: data.customerIdNumber || null,
     document: data.document || null,
     attachments: data.attachments || null,
+    grossAmount: Number(data.grossAmount || data.subtotal || 0),
+    taxableAmount: Number(data.taxableAmount || data.subtotal || 0),
     subtotal: Number(data.subtotal || 0),
     discount: Number(data.discount || 0),
     igst: Number(data.igst || 0),
@@ -136,13 +165,17 @@ export const createPurchase = async (data, storeId) => {
     sgst: Number(data.sgst || 0),
     taxAmount: Number(data.taxAmount || 0),
     roundOff: Number(data.roundOff || 0),
-    totalAmount: Number(data.totalAmount || 0),
-    paymentMode: data.paymentMode || null,
-    paidAmount: Number(data.paidAmount || 0),
-    dueAmount: Number(data.dueAmount || 0),
+    totalAmount: Number(data.totalAmount || netPayable),
+    netPayable: netPayable,
+    paymentMode: data.paymentMode || (purchasePayments[0]?.paymentMode ?? null),
+    paidAmount: totalPaid,
+    dueAmount: Math.max(0, Math.round((netPayable - totalPaid + Number.EPSILON) * 100) / 100),
     narration: data.narration || null,
     items: {
       create: purchaseItems
+    },
+    payments: {
+      create: purchasePayments
     }
   });
 
@@ -501,6 +534,7 @@ export const updatePurchase = async (id, data, storeId) => {
       discount: Number(item.discount || 0),
       totalAmount: Number(item.totalAmount || 0),
       huidNo: item.huidNo || null,
+      hsnCode: item.hsnCode || "711319",
       barSerialNo: item.barSerialNo || null,
       assayCertNo: item.assayCertNo || null,
       vatType: item.vatType || null,
@@ -512,6 +546,38 @@ export const updatePurchase = async (id, data, storeId) => {
     updateData.items = {
       deleteMany: {},
       create: purchaseItems
+    };
+  }
+
+  if (data.grossAmount !== undefined) updateData.grossAmount = Number(data.grossAmount || 0);
+  if (data.taxableAmount !== undefined) updateData.taxableAmount = Number(data.taxableAmount || 0);
+  if (data.netPayable !== undefined) updateData.netPayable = Number(data.netPayable || 0);
+
+  if (data.payments !== undefined && Array.isArray(data.payments)) {
+    const updatedPayments = data.payments
+      .filter((p) => Number(p.amount || 0) > 0)
+      .map((p) => ({
+        storeId: numericStoreId,
+        paymentMode: p.paymentMode || "CASH",
+        paymentChannel: p.paymentChannel || null,
+        amount: Math.round((Number(p.amount || 0) + Number.EPSILON) * 100) / 100,
+        transactionId: p.transactionId || p.referenceNo || null,
+        referenceNo: p.referenceNo || p.transactionId || null,
+        description: p.description || null,
+        paymentDate: p.paymentDate ? new Date(p.paymentDate) : new Date(),
+        narration: p.narration || null,
+      }));
+
+    const totalPaid = Math.round((updatedPayments.reduce((s, p) => s + Number(p.amount || 0), 0) + Number.EPSILON) * 100) / 100;
+    const net = Number(data.netPayable || data.totalAmount || purchase.netPayable || purchase.totalAmount || 0);
+
+    updateData.paidAmount = totalPaid;
+    updateData.dueAmount = Math.max(0, Math.round((net - totalPaid + Number.EPSILON) * 100) / 100);
+    if (updatedPayments[0]?.paymentMode) updateData.paymentMode = updatedPayments[0].paymentMode;
+
+    updateData.payments = {
+      deleteMany: {},
+      create: updatedPayments
     };
   }
 

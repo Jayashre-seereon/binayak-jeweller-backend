@@ -183,6 +183,7 @@ export const createInventoryService = async (
       grossWeight: purchaseItem.grossWeight,
       stoneWeight: purchaseItem.stoneWeight,
       netWeight: purchaseItem.netWeight,
+      pieces: Math.max(1, Number(purchaseItem.pieces || 1)),
 
       dustWeight: purchaseItem.dustWeight,
       deductionWeight: purchaseItem.deductionWeight,
@@ -196,6 +197,7 @@ export const createInventoryService = async (
       fineness: purchaseItem.fineness,
 
       huidNo: asString(purchaseItem.huidNo),
+      hsnCode: asString(purchaseItem.hsnCode) || "711319",
       tagNo: asString(tagNo),
       barcodeNo: asString(barcodeNo),
       barSerialNo: asString(purchaseItem.barSerialNo),

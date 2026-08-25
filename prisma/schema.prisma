@@ -27,6 +27,14 @@ model Store {
   password               String
   role                   String                  @default("STORE")
   refreshToken           String?
+  cinNo                  String?
+  gstNo                  String?
+  state                  String?
+  city                   String?
+  address                String?
+  phone                  String?
+  termsConditions        String?
+  tagline                String?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   brands                 Brand[]
@@ -44,6 +52,7 @@ model Store {
   partyOpeningBalance    PartyOpeningBalance[]
   rateMaster             RateMaster[]
   purchases              Purchase[]
+  purchasePayments       PurchasePayment[]
   inventory              Inventory[]
   advanceReceive         AdvanceReceive[]
   storeCounter           StoreCounter?
@@ -356,14 +365,17 @@ model Purchase {
   document    String?
   attachments Json?
 
-  subtotal    Float @default(0)
-  discount    Float @default(0)
-  igst        Float @default(0)
-  cgst        Float @default(0)
-  sgst        Float @default(0)
-  taxAmount   Float @default(0)
-  roundOff    Float @default(0)
-  totalAmount Float @default(0)
+  grossAmount   Float @default(0)
+  taxableAmount Float @default(0)
+  subtotal      Float @default(0)
+  discount      Float @default(0)
+  igst          Float @default(0)
+  cgst          Float @default(0)
+  sgst          Float @default(0)
+  taxAmount     Float @default(0)
+  roundOff      Float @default(0)
+  totalAmount   Float @default(0)
+  netPayable    Float @default(0)
 
   paymentMode String?
   paidAmount  Float   @default(0)
@@ -371,10 +383,11 @@ model Purchase {
 
   narration String?
 
-  party        Partymaster?   @relation(fields: [partyId], references: [id])
-  employee     Employee?      @relation(fields: [employeeId], references: [id])
-  store        Store          @relation(fields: [storeId], references: [id])
+  party        Partymaster?      @relation(fields: [partyId], references: [id])
+  employee     Employee?         @relation(fields: [employeeId], references: [id])
+  store        Store             @relation(fields: [storeId], references: [id])
   items        PurchaseItem[]
+  payments     PurchasePayment[]
   inventory    Inventory[]
   saleOldGolds SaleOldGold[]
   createdAt    DateTime       @default(now())
@@ -422,6 +435,7 @@ model PurchaseItem {
   totalAmount Float @default(0)
 
   huidNo      String?
+  hsnCode     String? @default("711319")
   tagNo       String?
   barSerialNo String?
   assayCertNo String?
@@ -481,6 +495,7 @@ model Inventory {
   grossWeight Float @default(0)
   stoneWeight Float @default(0)
   netWeight   Float @default(0)
+  pieces      Int?  @default(1)
 
   dustWeight      Float @default(0)
   deductionWeight Float @default(0)
@@ -494,6 +509,7 @@ model Inventory {
   fineness        Float?
 
   huidNo      String?
+  hsnCode     String? @default("711319")
   tagNo       String?
   barcodeNo   String?
   barSerialNo String?
@@ -627,28 +643,58 @@ model Sale {
   customerName    String?
   customerPhone   String?
   customerAddress String?
+  customerCity    String?
+  customerPan     String?
   customerGst     String?
+  customerState   String?
+  placeOfSupply   String?
 
-  subtotal Float @default(0)
-  discount Float @default(0)
+  cinNo       String?
+  storeGst    String?
+  cashierName String?
+  irnNo       String?
 
-  igst      Float @default(0)
-  cgst      Float @default(0)
-  sgst      Float @default(0)
-  taxAmount Float @default(0)
+  isCustomerCopy Boolean @default(true)
 
+  grossAmount   Float @default(0)
+  offerDiscount Float @default(0)
+  discount      Float @default(0)
+  taxableAmount Float @default(0)
+
+  cgstPercent Float @default(1.5)
+  cgstAmount  Float @default(0)
+  sgstPercent Float @default(1.5)
+  sgstAmount  Float @default(0)
+  igstPercent Float @default(0)
+  igstAmount  Float @default(0)
+  totalTax    Float @default(0)
+
+  subTotal Float @default(0)
+  lessUrd  Float @default(0)
   roundOff Float @default(0)
 
-  grossTotal Float @default(0)
+  gstRate     Float?  @default(0)
+  gstType     String?
+  invoiceType String? @default("TAX_INVOICE")
 
+  // Backward compatibility / aggregate totals
+  subtotal      Float @default(0)
+  igst          Float @default(0)
+  cgst          Float @default(0)
+  sgst          Float @default(0)
+  taxAmount     Float @default(0)
+  grossTotal    Float @default(0)
   oldGoldAmount Float @default(0)
   advanceAmount Float @default(0)
 
-  payableAmount Float @default(0)
-  paidAmount    Float @default(0)
-  dueAmount     Float @default(0)
+  payableAmount Float   @default(0)
+  netPayable    Float   @default(0)
+  paidAmount    Float   @default(0)
+  dueAmount     Float   @default(0)
+  amountInWords String?
 
-  narration String?
+  termsAccepted Boolean @default(true)
+  narration     String?
 
   store Store        @relation(fields: [storeId], references: [id])
   party Partymaster? @relation(fields: [partyId], references: [id])
@@ -673,6 +719,12 @@ model SaleItem {
   saleId      Int
   inventoryId Int
 
+  particulars String?
+  itemCode    String?
+  huidNo      String?
+  hsnCode     String? @default("711319")
+  purityName  String?
+
   pieces Int @default(1)
 
   grossWeight Float @default(0)
@@ -682,12 +734,15 @@ model SaleItem {
   purity Float?
   rate   Float  @default(0)
 
-  metalAmount     Float @default(0)
-  makingCharges   Float @default(0)
-  wastageAmount   Float @default(0)
-  stoneAmount     Float @default(0)
-  hallmarkCharges Float @default(0)
-  otherAmount     Float @default(0)
+  metalAmount      Float   @default(0)
+  makingCharges    Float   @default(0)
+  makingChargeType String? @default("PERCENT")
+  makingChargeRate Float   @default(0)
+  wastageAmount    Float   @default(0)
+  stoneAmount      Float   @default(0)
+  hallmarkCharges  Float   @default(0)
+  otherCharges     Float   @default(0)
+  otherAmount      Float   @default(0)
 
   discount Float @default(0)
 
@@ -717,8 +772,11 @@ model SalePayment {
   saleId  Int
   storeId Int
 
-  paymentMode SalePaymentMode
-  amount      Float
+  paymentMode    SalePaymentMode
+  amount         Float
+  paymentChannel String?
+  transactionId  String?
+  description    String?
 
   referenceNo String?
   paymentDate DateTime @default(now())
@@ -791,3 +849,29 @@ model SaleAdvanceAdjustment {
   @@index([advanceReceiveId])
   @@index([storeId])
 }
+
+model PurchasePayment {
+  id Int @id @default(autoincrement())
+
+  purchaseId Int
+  storeId    Int
+
+  paymentMode    String?
+  amount         Float
+  paymentChannel String?
+  transactionId  String?
+  description    String?
+
+  referenceNo String?
+  paymentDate DateTime @default(now())
+  narration   String?
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  store    Store    @relation(fields: [storeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([storeId])
+}
+

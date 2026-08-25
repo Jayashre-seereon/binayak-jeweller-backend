@@ -20,7 +20,8 @@ export const createSale = async (
     const sale =
       await salesService.createSaleService(
         req.body,
-        storeId
+        storeId,
+        req.user
       );
 
     return res.status(201).json({

@@ -10,6 +10,7 @@ import {
   countPurchases
 } from "../repositories/purchaseRepository.js";
 import { generateInvoiceNo } from "../utils/purchaseCodeGenerator.js";
+import { getOrCreateCustomerService } from "./customerService.js";
 
 const purchaseError = (message) => new Error(message);
 
@@ -138,11 +139,27 @@ export const createPurchase = async (data, storeId) => {
   const totalPaid = Math.round((purchasePayments.reduce((s, p) => s + Number(p.amount || 0), 0) + Number.EPSILON) * 100) / 100;
   const netPayable = Number(data.netPayable || data.totalAmount || 0);
 
+  let customerId = null;
+  if (data.customerPhone?.trim()) {
+    const customer = await getOrCreateCustomerService(
+      {
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        customerAddress: data.address,
+        customerIdType: data.customerIdType,
+        customerIdNumber: data.customerIdNumber,
+      },
+      numericStoreId
+    );
+    customerId = customer?.id || null;
+  }
+
   const buildPurchaseData = (invoiceNo) => ({
     invoiceNo,
     purchaseType: data.purchaseType,
     partyId: data.partyId ? Number(data.partyId) : null,
     employeeId: data.employeeId ? Number(data.employeeId) : null,
+    customerId,
     storeId: numericStoreId,
     date: data.date ? new Date(data.date) : new Date(),
     referenceNo: data.referenceNo || null,
@@ -167,6 +184,9 @@ export const createPurchase = async (data, storeId) => {
     roundOff: Number(data.roundOff || 0),
     totalAmount: Number(data.totalAmount || netPayable),
     netPayable: netPayable,
+    adjustedAmount: 0,
+    balanceAmount: netPayable,
+    adjustmentStatus: "AVAILABLE",
     paymentMode: data.paymentMode || (purchasePayments[0]?.paymentMode ?? null),
     paidAmount: totalPaid,
     dueAmount: Math.max(0, Math.round((netPayable - totalPaid + Number.EPSILON) * 100) / 100),

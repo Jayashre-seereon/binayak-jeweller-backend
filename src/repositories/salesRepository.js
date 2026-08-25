@@ -3,6 +3,8 @@ import prisma from "../config/db.js";
 const saleInclude = {
   store: true,
   party: true,
+  customer: true,
+  adjustmentLogs: true,
 
   items: {
     include: {

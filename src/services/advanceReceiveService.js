@@ -1,4 +1,5 @@
 import * as advanceReceiveRepo from "../repositories/advanceReceiveRepository.js";
+import { getOrCreateCustomerService } from "./customerService.js";
 
 const validateStoreId = (storeId) => {
   const id = Number(storeId);
@@ -44,13 +45,30 @@ export const createAdvanceReceiveService = async (
     );
   }
 
+  let customerId = null;
+  if (data.contactNumber?.trim()) {
+    const customer = await getOrCreateCustomerService(
+      {
+        customerName: data.customerName.trim(),
+        customerPhone: data.contactNumber.trim(),
+        customerAddress: data.address?.trim() || null,
+      },
+      parsedStoreId
+    );
+    customerId = customer?.id || null;
+  }
+
   const advance =
     await advanceReceiveRepo.createAdvanceReceiveRepo({
+      customerId,
       customerName: data.customerName.trim(),
       contactNumber:
         data.contactNumber?.trim() || null,
       address: data.address?.trim() || null,
       amount,
+      adjustedAmount: 0,
+      balanceAmount: amount,
+      status: "AVAILABLE",
       paymentMode: data.paymentMode,
       specification:
         data.specification?.trim() || null,

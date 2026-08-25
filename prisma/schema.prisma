@@ -60,6 +60,8 @@ model Store {
   salePayments           SalePayment[]
   saleOldGolds           SaleOldGold[]
   saleAdvanceAdjustments SaleAdvanceAdjustment[]
+  customers              Customer[]
+  customerAdjustmentLogs CustomerAdjustmentLog[]
   transfersFrom          InventoryTransfer[]     @relation("TransferFromStore")
   transfersTo            InventoryTransfer[]     @relation("TransferToStore")
 }
@@ -357,6 +359,7 @@ model Purchase {
   placeOfSupply String?
   isRCM         Boolean @default(false)
 
+  customerId       Int?
   customerName     String?
   customerPhone    String?
   customerIdType   String?
@@ -381,10 +384,15 @@ model Purchase {
   paidAmount  Float   @default(0)
   dueAmount   Float   @default(0)
 
+  adjustedAmount   Float   @default(0)
+  balanceAmount    Float   @default(0)
+  adjustmentStatus String  @default("AVAILABLE")
+
   narration String?
 
   party        Partymaster?      @relation(fields: [partyId], references: [id])
   employee     Employee?         @relation(fields: [employeeId], references: [id])
+  customer     Customer?         @relation(fields: [customerId], references: [id])
   store        Store             @relation(fields: [storeId], references: [id])
   items        PurchaseItem[]
   payments     PurchasePayment[]
@@ -589,6 +597,71 @@ model InventoryTransferItem {
   @@index([inventoryId])
 }
 
+model Customer {
+  id              Int       @id @default(autoincrement())
+  customerCode    String?   @unique
+  name            String
+  phone           String    @unique
+  address         String?
+  city            String?
+  state           String?   @default("ODISHA")
+  pan             String?
+  gst             String?
+  idType          String?
+  idNumber        String?
+
+  storeId         Int
+  store           Store     @relation(fields: [storeId], references: [id])
+
+  sales           Sale[]
+  purchases       Purchase[]
+  advanceReceives AdvanceReceive[]
+  adjustmentLogs  CustomerAdjustmentLog[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([storeId])
+  @@index([phone])
+}
+
+enum AdjustmentType {
+  ADVANCE
+  OLD_JEWELLERY
+}
+
+model CustomerAdjustmentLog {
+  id                Int            @id @default(autoincrement())
+  customerId        Int
+  saleId            Int
+  storeId           Int
+  adjustmentType    AdjustmentType
+  referenceId       Int
+  referenceDocNo    String?
+  saleInvoiceNo     String
+  
+  totalOriginal     Float          @default(0)
+  previousBalance   Float          @default(0)
+  adjustedAmount    Float          @default(0)
+  remainingBalance  Float          @default(0)
+  
+  cashierName       String?
+  adjustmentDate    DateTime       @default(now())
+  notes             String?
+
+  customer          Customer       @relation(fields: [customerId], references: [id])
+  sale              Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  store             Store          @relation(fields: [storeId], references: [id])
+
+  createdAt         DateTime       @default(now())
+
+  @@index([customerId])
+  @@index([saleId])
+  @@index([storeId])
+  @@index([referenceId])
+  @@index([adjustmentType])
+}
+
 enum AdvancePaymentMode {
   CASH
   ONLINE
@@ -596,6 +669,7 @@ enum AdvancePaymentMode {
 
 model AdvanceReceive {
   id            Int                @id @default(autoincrement())
+  customerId    Int?
   customerName  String
   contactNumber String?
   address       String?
@@ -603,15 +677,21 @@ model AdvanceReceive {
   paymentMode   AdvancePaymentMode
   specification String?
 
+  adjustedAmount Float             @default(0)
+  balanceAmount  Float             @default(0)
+  status         String            @default("AVAILABLE")
+
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])
 
+  customer        Customer?               @relation(fields: [customerId], references: [id])
   saleAdjustments SaleAdvanceAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([storeId])
+  @@index([customerId])
   @@index([contactNumber])
   @@index([customerName])
 }
@@ -634,8 +714,9 @@ model Sale {
   id        Int    @id @default(autoincrement())
   invoiceNo String @unique
 
-  storeId Int
-  partyId Int?
+  storeId    Int
+  partyId    Int?
+  customerId Int?
 
   saleDate DateTime   @default(now())
   status   SaleStatus @default(COMPLETED)
@@ -696,19 +777,22 @@ model Sale {
   termsAccepted Boolean @default(true)
   narration     String?
 
-  store Store        @relation(fields: [storeId], references: [id])
-  party Partymaster? @relation(fields: [partyId], references: [id])
+  store    Store        @relation(fields: [storeId], references: [id])
+  party    Partymaster? @relation(fields: [partyId], references: [id])
+  customer Customer?    @relation(fields: [customerId], references: [id])
 
   items              SaleItem[]
   payments           SalePayment[]
   oldGolds           SaleOldGold[]
   advanceAdjustments SaleAdvanceAdjustment[]
+  adjustmentLogs     CustomerAdjustmentLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([storeId])
   @@index([partyId])
+  @@index([customerId])
   @@index([saleDate])
   @@index([status])
 }
@@ -813,6 +897,11 @@ model SaleOldGold {
 
   value Float @default(0)
 
+  adjustedAmount   Float   @default(0)
+  previousBalance  Float   @default(0)
+  remainingBalance Float   @default(0)
+  cashierName      String?
+
   sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   purchase Purchase? @relation(fields: [purchaseId], references: [id])
@@ -834,6 +923,11 @@ model SaleAdvanceAdjustment {
   advanceReceiveId Int
 
   amount Float
+
+  adjustedAmount   Float   @default(0)
+  previousBalance  Float   @default(0)
+  remainingBalance Float   @default(0)
+  cashierName      String?
 
   sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 

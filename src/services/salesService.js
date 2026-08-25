@@ -5,7 +5,8 @@ import {
   getSalesRepo,
   getSaleCountRepo,
 } from "../repositories/salesRepository.js";
-
+import { getOrCreateCustomerService } from "./customerService.js";
+import { createCustomerAdjustmentLogRepo } from "../repositories/customerRepository.js";
 import { generateSaleInvoiceNo } from "../utils/salesCodeGenerator.js";
 import { numberToWordsIndian } from "../utils/numberToWords.js";
 
@@ -109,7 +110,7 @@ export const createSaleService = async (data, storeId, user = null) => {
 
         if (!party) {
           throw saleError(
-            "The selected customer is not linked to this store. Please choose a valid customer."
+            "The selected party is not linked to this store. Please choose a valid party."
           );
         }
 
@@ -119,6 +120,23 @@ export const createSaleService = async (data, storeId, user = null) => {
         customerAddress = customerAddress || party.address || "";
         customerGst = customerGst || party.gst || "";
       }
+
+      // Find or create Customer using clean phone number
+      const customer = await getOrCreateCustomerService(
+        {
+          customerName,
+          customerPhone,
+          customerAddress,
+          customerCity,
+          customerPan,
+          customerGst,
+          customerState,
+        },
+        numericStoreId,
+        tx
+      );
+
+      const customerId = customer?.id || null;
 
       const storeState = (store.state || "ODISHA").trim().toUpperCase();
       const placeOfSupply = (
@@ -306,9 +324,192 @@ export const createSaleService = async (data, storeId, user = null) => {
 
       const totalTax = roundMoney(cgstAmount + sgstAmount + igstAmount);
       const subTotal = roundMoney(taxableAmount + totalTax);
-      const lessUrd = roundMoney(Number(data.lessUrd || 0));
 
-      const unroundedNet = roundMoney(subTotal - lessUrd);
+      /*
+      ========================================
+      5. PROCESS ADJUSTMENTS (ADVANCE & OLD JEWELLERY)
+      ========================================
+      */
+      let totalAdvanceAdjusted = 0;
+      let totalOldGoldAdjusted = 0;
+      const saleAdvanceAdjustmentsToCreate = [];
+      const saleOldGoldsToCreate = [];
+      const customerAdjustmentLogsToCreate = [];
+
+      // 5A. Process Advance Payment Adjustments
+      if (data.advanceAdjustments && Array.isArray(data.advanceAdjustments)) {
+        for (const adj of data.advanceAdjustments) {
+          const reqAmount = roundMoney(Number(adj.amount || adj.adjustedAmount || 0));
+          if (reqAmount <= 0) continue;
+
+          const advance = await tx.advanceReceive.findFirst({
+            where: {
+              id: Number(adj.advanceReceiveId || adj.id),
+              storeId: numericStoreId,
+            },
+            include: {
+              saleAdjustments: true,
+            },
+          });
+
+          if (!advance) {
+            throw saleError(`Advance receipt #${adj.advanceReceiveId || adj.id} was not found.`);
+          }
+
+          const usedSum = roundMoney(
+            advance.saleAdjustments.reduce((s, sa) => s + Number(sa.amount || sa.adjustedAmount || 0), 0)
+          );
+          const totalAdvAmount = roundMoney(Number(advance.amount || 0));
+          const availableBalance = roundMoney(Math.max(0, totalAdvAmount - usedSum));
+
+          if (reqAmount > availableBalance + 0.01) {
+            throw saleError(
+              `Requested advance adjustment (Rs. ${formatMoney(reqAmount)}) exceeds available balance (Rs. ${formatMoney(availableBalance)}) for receipt ADV-${advance.id}.`
+            );
+          }
+
+          const newUsed = roundMoney(usedSum + reqAmount);
+          const remainingBalance = roundMoney(Math.max(0, totalAdvAmount - newUsed));
+
+          // Update Advance Receive record
+          await tx.advanceReceive.update({
+            where: { id: advance.id },
+            data: {
+              adjustedAmount: newUsed,
+              balanceAmount: remainingBalance,
+              status: remainingBalance <= 0.01 ? "FULLY_ADJUSTED" : "PARTIALLY_ADJUSTED",
+              customerId: customerId || advance.customerId || undefined,
+            },
+          });
+
+          saleAdvanceAdjustmentsToCreate.push({
+            advanceReceiveId: advance.id,
+            storeId: numericStoreId,
+            amount: reqAmount,
+            adjustedAmount: reqAmount,
+            previousBalance: availableBalance,
+            remainingBalance,
+            cashierName,
+          });
+
+          if (customerId) {
+            customerAdjustmentLogsToCreate.push({
+              customerId,
+              storeId: numericStoreId,
+              adjustmentType: "ADVANCE",
+              referenceId: advance.id,
+              referenceDocNo: `ADV-${advance.id}`,
+              saleInvoiceNo: invoiceNo,
+              totalOriginal: totalAdvAmount,
+              previousBalance: availableBalance,
+              adjustedAmount: reqAmount,
+              remainingBalance,
+              cashierName,
+              notes: adj.notes || `Advance adjusted in sale ${invoiceNo}`,
+            });
+          }
+
+          totalAdvanceAdjusted = roundMoney(totalAdvanceAdjusted + reqAmount);
+        }
+      }
+
+      // 5B. Process Old Jewellery Adjustments
+      if (data.oldGoldAdjustments && Array.isArray(data.oldGoldAdjustments)) {
+        for (const og of data.oldGoldAdjustments) {
+          const reqAmount = roundMoney(Number(og.amount || og.value || og.adjustedAmount || 0));
+          if (reqAmount <= 0) continue;
+
+          const purchase = await tx.purchase.findFirst({
+            where: {
+              id: Number(og.purchaseId || og.id),
+              purchaseType: "OLD",
+              storeId: numericStoreId,
+            },
+            include: {
+              saleOldGolds: true,
+              items: {
+                include: {
+                  item: true,
+                  product: true,
+                },
+              },
+            },
+          });
+
+          if (!purchase) {
+            throw saleError(`Old jewellery purchase record #${og.purchaseId || og.id} was not found.`);
+          }
+
+          const totalValuation = roundMoney(Number(purchase.netPayable || purchase.totalAmount || purchase.grossAmount || 0));
+          const usedSum = roundMoney(
+            purchase.saleOldGolds.reduce((s, sog) => s + Number(sog.value || sog.adjustedAmount || 0), 0)
+          );
+          const availableValue = roundMoney(Math.max(0, totalValuation - usedSum));
+
+          if (reqAmount > availableValue + 0.01) {
+            throw saleError(
+              `Requested old jewellery adjustment (Rs. ${formatMoney(reqAmount)}) exceeds available value (Rs. ${formatMoney(availableValue)}) for invoice ${purchase.invoiceNo || purchase.id}.`
+            );
+          }
+
+          const newUsed = roundMoney(usedSum + reqAmount);
+          const remainingBalance = roundMoney(Math.max(0, totalValuation - newUsed));
+
+          // Update Purchase record
+          await tx.purchase.update({
+            where: { id: purchase.id },
+            data: {
+              adjustedAmount: newUsed,
+              balanceAmount: remainingBalance,
+              adjustmentStatus: remainingBalance <= 0.01 ? "FULLY_ADJUSTED" : "PARTIALLY_ADJUSTED",
+              customerId: customerId || purchase.customerId || undefined,
+            },
+          });
+
+          const primaryItem = purchase.items?.[0];
+          saleOldGoldsToCreate.push({
+            purchaseId: purchase.id,
+            storeId: numericStoreId,
+            description: og.description || primaryItem?.item?.name || primaryItem?.product?.name || "Old Jewellery Value Adjusted",
+            grossWeight: Number(primaryItem?.grossWeight || 0),
+            stoneWeight: Number(primaryItem?.stoneWeight || 0),
+            netWeight: Number(primaryItem?.netWeight || 0),
+            purity: primaryItem?.purity ? Number(primaryItem.purity) : null,
+            rate: Number(primaryItem?.rate || 0),
+            metalAmount: Number(primaryItem?.metalAmount || 0),
+            deductionAmount: 0,
+            value: reqAmount,
+            adjustedAmount: reqAmount,
+            previousBalance: availableValue,
+            remainingBalance,
+            cashierName,
+          });
+
+          if (customerId) {
+            customerAdjustmentLogsToCreate.push({
+              customerId,
+              storeId: numericStoreId,
+              adjustmentType: "OLD_JEWELLERY",
+              referenceId: purchase.id,
+              referenceDocNo: purchase.invoiceNo || `PUR-OLD-${purchase.id}`,
+              saleInvoiceNo: invoiceNo,
+              totalOriginal: totalValuation,
+              previousBalance: availableValue,
+              adjustedAmount: reqAmount,
+              remainingBalance,
+              cashierName,
+              notes: og.notes || `Old Jewellery adjusted in sale ${invoiceNo}`,
+            });
+          }
+
+          totalOldGoldAdjusted = roundMoney(totalOldGoldAdjusted + reqAmount);
+        }
+      }
+
+      const totalDeductions = roundMoney(totalAdvanceAdjusted + totalOldGoldAdjusted);
+      const lessUrd = roundMoney(Number(data.lessUrd || 0) + totalOldGoldAdjusted);
+
+      const unroundedNet = roundMoney(Math.max(0, subTotal - totalDeductions));
       let roundOff = 0;
       if (data.roundOff !== undefined && data.roundOff !== null && data.roundOff !== "") {
         roundOff = roundMoney(Number(data.roundOff));
@@ -322,7 +523,7 @@ export const createSaleService = async (data, storeId, user = null) => {
 
       /*
       ========================================
-      5. PAYMENTS
+      6. PAYMENTS VALIDATION & COLLECTION
       ========================================
       */
       const payments = [];
@@ -353,7 +554,7 @@ export const createSaleService = async (data, storeId, user = null) => {
         }
       }
 
-      if (paidAmount > netPayable) {
+      if (paidAmount > netPayable + 0.01) {
         throw saleError(
           `Payment amount (${formatMoney(paidAmount)}) cannot exceed net payable (${formatMoney(netPayable)}).`
         );
@@ -363,7 +564,7 @@ export const createSaleService = async (data, storeId, user = null) => {
 
       /*
       ========================================
-      6. CREATE SALE IN DATABASE
+      7. CREATE SALE IN DATABASE
       ========================================
       */
       const sale = await createSaleRepo(
@@ -371,6 +572,7 @@ export const createSaleService = async (data, storeId, user = null) => {
           invoiceNo,
           storeId: numericStoreId,
           partyId,
+          customerId,
           saleDate: data.saleDate ? new Date(data.saleDate) : new Date(),
           status: "COMPLETED",
 
@@ -413,8 +615,8 @@ export const createSaleService = async (data, storeId, user = null) => {
           sgst: sgstAmount,
           taxAmount: totalTax,
           grossTotal: netPayable,
-          oldGoldAmount: 0,
-          advanceAmount: 0,
+          oldGoldAmount: totalOldGoldAdjusted,
+          advanceAmount: totalAdvanceAdjusted,
 
           payableAmount: netPayable,
           netPayable,
@@ -432,13 +634,36 @@ export const createSaleService = async (data, storeId, user = null) => {
           payments: {
             create: payments,
           },
+
+          advanceAdjustments: {
+            create: saleAdvanceAdjustmentsToCreate,
+          },
+
+          oldGolds: {
+            create: saleOldGoldsToCreate,
+          },
         },
         tx
       );
 
       /*
       ========================================
-      7. UPDATE INVENTORY STATUS -> SOLD
+      8. CREATE CUSTOMER ADJUSTMENT LOGS
+      ========================================
+      */
+      for (const log of customerAdjustmentLogsToCreate) {
+        await createCustomerAdjustmentLogRepo(
+          {
+            ...log,
+            saleId: sale.id,
+          },
+          tx
+        );
+      }
+
+      /*
+      ========================================
+      9. UPDATE INVENTORY STATUS -> SOLD
       ========================================
       */
       for (const inventory of inventories) {

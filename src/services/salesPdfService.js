@@ -58,6 +58,7 @@ export const generateSalePdf = async (id, storeId, res) => {
     where: { id: Number(id) },
     include: {
       party: true,
+      customer: true,
       store: true,
       items: {
         include: {
@@ -74,6 +75,16 @@ export const generateSalePdf = async (id, storeId, res) => {
         },
       },
       payments: true,
+      advanceAdjustments: {
+        include: {
+          advanceReceive: true,
+        },
+      },
+      oldGolds: {
+        include: {
+          purchase: true,
+        },
+      },
     },
   });
 
@@ -471,46 +482,57 @@ export const generateSalePdf = async (id, storeId, res) => {
   // RIGHT COLUMN: AMOUNT SUMMARY BREAKDOWN
   // ----------------------------------------
   let ry = splitStartY;
-  drawRect(doc, rightColX, ry, rightColWidth, 198, 0.7, COLORS.border);
+  drawRect(doc, rightColX, ry, rightColWidth, 204, 0.7, COLORS.border);
 
-  const renderSumRow = (label, valStr, isBold = false, prefix = "") => {
-    doc.font(isBold ? "Helvetica-Bold" : "Helvetica").fontSize(7.5).fillColor(COLORS.black);
-    doc.text(label, rightColX + 8, ry + 4);
-    doc.text(valStr, rightColX + 110, ry + 4, { width: rightColWidth - 118, align: "right" });
-    ry += 13.5;
+  const renderSumRow = (label, valStr, isBold = false, color = COLORS.black) => {
+    doc.font(isBold ? "Helvetica-Bold" : "Helvetica").fontSize(7.3).fillColor(color);
+    doc.text(label, rightColX + 8, ry + 3);
+    doc.text(valStr, rightColX + 110, ry + 3, { width: rightColWidth - 118, align: "right" });
+    ry += 12.5;
   };
 
-  const offerDisc = sale.offerDiscount || 0;
-  const addDisc = sale.discount || 0;
-  const taxableAmt = sale.taxableAmount || (grossAmountVal - offerDisc - addDisc);
-  const subTotalAmt = sale.subTotal || (taxableAmt + cgstA + sgstA + igstA);
-  const lessUrdAmt = sale.lessUrd || 0;
-  const roundOffAmt = sale.roundOff || 0;
-  const netPayableAmt = sale.netPayable || sale.grossTotal || (subTotalAmt - lessUrdAmt + roundOffAmt);
+  const offerDisc = Number(sale.offerDiscount || 0);
+  const addDisc = Number(sale.discount || 0);
+  const taxableAmt = Number(sale.taxableAmount || (grossAmountVal - offerDisc - addDisc));
+  const subTotalAmt = Number(sale.subTotal || (taxableAmt + cgstA + sgstA + igstA));
+  const advanceAdjAmt = Number(sale.advanceAmount || 0);
+  const oldGoldAdjAmt = Number(sale.oldGoldAmount || sale.lessUrd || 0);
+  const roundOffAmt = Number(sale.roundOff || 0);
+  const netPayableAmt = Number(sale.netPayable || sale.grossTotal || (subTotalAmt - advanceAdjAmt - oldGoldAdjAmt + roundOffAmt));
+  const paidAmt = Number(sale.paidAmount || paidAmountVal || 0);
+  const dueAmt = Number(sale.dueAmount ?? Math.max(0, netPayableAmt - paidAmt));
 
   renderSumRow("Gross Amount", money(grossAmountVal));
-  renderSumRow("Offer Discount [-]", money(offerDisc));
-  renderSumRow("Discount [-]", money(addDisc));
+  if (offerDisc > 0) renderSumRow("Offer Discount [-]", money(offerDisc));
+  if (addDisc > 0) renderSumRow("Discount [-]", money(addDisc));
   renderSumRow("Taxable Amount", money(taxableAmt), true);
-  renderSumRow("CGST Amt. [ + ]", money(cgstA));
-  renderSumRow("SGST Amt. [ + ]", money(sgstA));
-  renderSumRow("IGST Amt. [ + ]", money(igstA));
+  if (!isInterState) {
+    renderSumRow("CGST Amt. [ + ]", money(cgstA));
+    renderSumRow("SGST Amt. [ + ]", money(sgstA));
+  } else {
+    renderSumRow("IGST Amt. [ + ]", money(igstA));
+  }
   renderSumRow("Sub Total", money(subTotalAmt), true);
-  renderSumRow("Less URD [-]", money(lessUrdAmt));
+  if (advanceAdjAmt > 0) renderSumRow("Advance Adj. [-]", money(advanceAdjAmt), false, "#047857");
+  if (oldGoldAdjAmt > 0) renderSumRow("Old Jewellery / Less URD [-]", money(oldGoldAdjAmt), false, "#b45309");
   renderSumRow("Round Off [ +/- ]", money(roundOffAmt));
-  drawHLine(doc, rightColX, ry + 2, rightColWidth, 0.5, COLORS.border);
-  ry += 4;
+  drawHLine(doc, rightColX, ry + 1, rightColWidth, 0.5, COLORS.border);
+  ry += 3;
   renderSumRow("Net Payable", money(netPayableAmt), true);
+  renderSumRow("Paid Amount", money(paidAmt), true, "#047857");
+  if (dueAmt > 0) {
+    renderSumRow("Due Amount", money(dueAmt), true, "#b91c1c");
+  }
 
-  ry += 6;
+  ry += 4;
   const cashierDisplay = sale.cashierName || sale.store?.storeName || "AdityaSahoo";
   doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
   doc.text(`Cashier : ${cashierDisplay}`, rightColX + 8, ry);
-  ry += 16;
+  ry += 14;
 
   doc.font("Helvetica").fontSize(7).fillColor(COLORS.muted);
   doc.text(`For ${sale.store?.storeName || "Binayak Jewellers"}`, rightColX + 8, ry, { width: rightColWidth - 16, align: "right" });
-  ry += 22;
+  ry += 18;
 
   doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
   doc.text("Authorised Signatory", rightColX + 8, ry, { width: rightColWidth - 16, align: "right" });

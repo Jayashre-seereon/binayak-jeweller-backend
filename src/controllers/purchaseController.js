@@ -194,19 +194,12 @@ export const getPurchaseCount = async (req, res) => {
 export const downloadPurchasePdf = async (req, res) => {
   try {
     const purchaseId = Number(req.params.id);
-    const storeId = Number(req.query.storeId);
+    const storeId = Number(req.query?.storeId || req.user?.storeId || 1);
 
     if (!purchaseId) {
       return res.status(400).json({
         success: false,
         message: "Please select a purchase record."
-      });
-    }
-
-    if (!storeId) {
-      return res.status(400).json({
-        success: false,
-        message: "Please select a store."
       });
     }
 

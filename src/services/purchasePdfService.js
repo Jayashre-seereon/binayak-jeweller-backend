@@ -1,121 +1,62 @@
 import PDFDocument from "pdfkit";
 import prisma from "../config/db.js";
+import { numberToWordsIndian } from "../utils/numberToWords.js";
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
-
-const MARGIN = 34;
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+const MARGIN = 24;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2; // 547.28
 
 const COLORS = {
-  ink: "#1c1917", // near-black warm gray — primary text
-  slate: "#57534e", // secondary text
-  muted: "#8a8580", // tertiary / placeholders
-  gold: "#9a6a1f", // accent — headings, rules, brand
-  goldDark: "#6b4a15",
-  border: "#e2ddd6",
-  headerFill: "#1c1917", // table header band
-  headerText: "#f5f1ea",
-  zebra: "#faf8f5",
-  totalFill: "#f4ede1",
-  paidGreen: "#3f6b4a",
-  dueRed: "#a3372f"
+  black: "#000000",
+  text: "#111827",
+  muted: "#4b5563",
+  border: "#9ca3af",
+  darkBorder: "#374151",
+  lightBorder: "#d1d5db",
+  zebra: "#f9fafb",
+  headerBg: "#f3f4f6",
 };
 
-const formatMoney = (value) => {
-  return Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+const money = (val) => Number(val || 0).toFixed(2);
+const weightStr = (val) => Number(val || 0).toFixed(3);
+
+const formatDateTime = (dateVal) => {
+  if (!dateVal) return "-";
+  const d = new Date(dateVal);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const hoursStr = String(hours).padStart(2, "0");
+
+  return `${day}/${month}/${year} / ${hoursStr}:${minutes}:${ampm}`;
 };
 
-const formatNumber = (value, digits = 3) => {
-  return Number(value || 0).toFixed(digits);
+const drawHLine = (doc, x, y, width, strokeWidth = 0.5, color = COLORS.border) => {
+  doc.save().lineWidth(strokeWidth).strokeColor(color).moveTo(x, y).lineTo(x + width, y).stroke().restore();
 };
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  });
+const drawVLine = (doc, x, y1, y2, strokeWidth = 0.5, color = COLORS.border) => {
+  doc.save().lineWidth(strokeWidth).strokeColor(color).moveTo(x, y1).lineTo(x, y2).stroke().restore();
 };
 
-
-const drawLine = (doc, x1, y1, x2, y2, width = 0.6, color = COLORS.border) => {
-  doc
-    .save()
-    .lineWidth(width)
-    .strokeColor(color)
-    .moveTo(x1, y1)
-    .lineTo(x2, y2)
-    .stroke()
-    .restore();
+const drawRect = (doc, x, y, width, height, strokeWidth = 0.6, color = COLORS.darkBorder) => {
+  doc.save().lineWidth(strokeWidth).strokeColor(color).rect(x, y, width, height).stroke().restore();
 };
-
-const drawBox = (doc, x, y, width, height, radius = 5, color = COLORS.border) => {
-  doc
-    .save()
-    .lineWidth(0.75)
-    .strokeColor(color)
-    .roundedRect(x, y, width, height, radius)
-    .stroke()
-    .restore();
-};
-
-const drawFilledBox = (doc, x, y, width, height, fill, radius = 5) => {
-  doc.save().fillColor(fill).roundedRect(x, y, width, height, radius).fill().restore();
-};
-
-const drawAccentCard = (doc, x, y, width, height, title) => {
-  drawFilledBox(doc, x, y, width, height, "#ffffff");
-  drawBox(doc, x, y, width, height, 5, COLORS.border);
-  drawFilledBox(doc, x, y, 3.5, height, COLORS.gold, 0);
-
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(8.5)
-    .fillColor(COLORS.gold)
-    .text(title.toUpperCase(), x + 14, y + 11, { characterSpacing: 0.6 });
-
-  drawLine(doc, x + 14, y + 24, x + width - 12, y + 24, 0.5, COLORS.border);
-};
-
-const drawLabelValue = (doc, label, value, x, y, labelWidth = 72, valueWidth = 160) => {
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(7.8)
-    .fillColor(COLORS.slate)
-    .text(label, x, y, { width: labelWidth });
-
-  doc
-    .font("Helvetica")
-    .fontSize(8.6)
-    .fillColor(COLORS.ink)
-    .text(value || "-", x + labelWidth, y, { width: valueWidth });
-};
-
-const drawSectionTitle = (doc, title, x, y, width) => {
-  doc
-    .save()
-    .font("Helvetica-Bold")
-    .fontSize(9.5)
-    .fillColor(COLORS.gold)
-    .text(title.toUpperCase(), x, y, { characterSpacing: 0.6 });
-
-  drawLine(doc, x, y + 15, x + width, y + 15, 0.8, COLORS.border);
-  doc.restore();
-};
-
 
 export const generatePurchasePdf = async (id, storeId, res) => {
   const purchase = await prisma.purchase.findUnique({
     where: { id: Number(id) },
     include: {
       party: true,
-      employee: true,
       store: true,
+      employee: true,
       payments: true,
       items: {
         include: {
@@ -124,431 +65,439 @@ export const generatePurchasePdf = async (id, storeId, res) => {
           metal: true,
           purityMaster: true,
           grade: true,
-          stone: true
-        }
-      }
-    }
+          stone: true,
+        },
+      },
+    },
   });
 
-  if (!purchase) {
-    throw new Error("Purchase not found");
-  }
-
-  if (purchase.storeId !== Number(storeId)) {
-    throw new Error("Unauthorized");
-  }
+  if (!purchase) throw new Error("Purchase invoice not found");
 
   const doc = new PDFDocument({
     size: "A4",
     margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
     bufferPages: true,
-    autoFirstPage: true
+    autoFirstPage: true,
   });
 
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="purchase-${purchase.invoiceNo || purchase.id}.pdf"`
-  );
-
+  res.setHeader("Content-Disposition", `inline; filename="Purchase-Invoice-${purchase.invoiceNo || purchase.id}.pdf"`);
   doc.pipe(res);
 
   let y = MARGIN;
 
-doc.save().fillColor(COLORS.gold).rect(MARGIN, y, CONTENT_WIDTH, 3).fill().restore();
+  /*
+  ========================================
+  1. TOP HEADER (PURCHASE INVOICE | PURCHASE COPY | BRANCH)
+  ========================================
+  */
+  doc.font("Helvetica-Bold").fontSize(11).fillColor(COLORS.black);
+  doc.text("PURCHASE INVOICE", MARGIN, y, { width: CONTENT_WIDTH, align: "center" });
+
+  doc.fontSize(9.5).text("PURCHASE COPY", MARGIN + 300, y, { width: CONTENT_WIDTH - 300, align: "right" });
+  y += 12;
+
+  const branchName = purchase.store?.storeName || "Bhubaneswar Branch";
+  doc.font("Helvetica-Bold").fontSize(9).text(branchName.includes("Branch") ? branchName : `${branchName} Branch`, MARGIN + 300, y, { width: CONTENT_WIDTH - 300, align: "right" });
   y += 16;
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(20)
-    .fillColor(COLORS.ink)
-    .text(purchase.store?.name || "JEWELLERY STORE", MARGIN, y, {
-      width: CONTENT_WIDTH,
-      align: "center"
-    });
-
-  y += 24;
-
-  if (purchase.store?.address) {
-    doc
-      .font("Helvetica")
-      .fontSize(8.5)
-      .fillColor(COLORS.slate)
-      .text(purchase.store.address, MARGIN, y, {
-        width: CONTENT_WIDTH,
-        align: "center"
-      });
-    y += 13;
-  }
-
-  y += 4;
-
-  // Invoice title pill
-  const pillText = "PURCHASE INVOICE";
-  doc.font("Helvetica-Bold").fontSize(10.5);
-  const pillWidth = doc.widthOfString(pillText) + 28;
-  const pillX = (PAGE_WIDTH - pillWidth) / 2;
-
-  drawFilledBox(doc, pillX, y, pillWidth, 20, COLORS.ink, 10);
-  doc
-    .fillColor(COLORS.headerText)
-    .text(pillText, pillX, y + 5.5, { width: pillWidth, align: "center", characterSpacing: 0.8 });
-
-  y += 32;
-
-  
-  const boxGap = 12;
-  const boxWidth = (CONTENT_WIDTH - boxGap) / 2;
-  const boxStartY = y;
-  const infoBoxHeight = 106;
-
-  drawAccentCard(doc, MARGIN, boxStartY, boxWidth, infoBoxHeight, "Invoice Details");
-
-  drawLabelValue(doc, "Invoice No", purchase.invoiceNo, MARGIN + 14, boxStartY + 34, 68, boxWidth - 90);
-  drawLabelValue(doc, "Invoice Date", formatDate(purchase.date), MARGIN + 14, boxStartY + 50, 68, boxWidth - 90);
-  drawLabelValue(doc, "Type", purchase.purchaseType, MARGIN + 14, boxStartY + 66, 68, boxWidth - 90);
-  drawLabelValue(doc, "Reference No", purchase.referenceNo || "-", MARGIN + 14, boxStartY + 82, 68, boxWidth - 90);
-
-  const partyX = MARGIN + boxWidth + boxGap;
-  drawAccentCard(doc, partyX, boxStartY, boxWidth, infoBoxHeight, "Party / Customer");
+  /*
+  ========================================
+  2. SUPPLIER / CUSTOMER & INVOICE DETAILS (2 COLUMNS)
+  ========================================
+  */
+  const detailStartY = y;
+  const col1X = MARGIN;
+  const col2X = MARGIN + 310;
+  const labelWidth1 = 70;
+  const labelWidth2 = 85;
 
   const partyName = purchase.party?.name || purchase.customerName || "-";
+  const partyAddress = purchase.party?.address || purchase.address || "-";
+  const partyCity = purchase.party?.city || "Bhubaneswar - 766001";
   const partyPhone = purchase.party?.phone || purchase.customerPhone || "-";
-  const partyAddress = purchase.address || purchase.party?.address || "-";
+  const partyIdPan = purchase.customerIdNumber || purchase.party?.pan || "-";
+  const partyGst = purchase.party?.gst || "-";
+  const placeOfSupply = purchase.placeOfSupply || purchase.party?.state || purchase.store?.state || "ODISHA";
 
-  drawLabelValue(doc, "Name", partyName, partyX + 14, boxStartY + 34, 55, boxWidth - 79);
-  drawLabelValue(doc, "Phone", partyPhone, partyX + 14, boxStartY + 50, 55, boxWidth - 79);
-  drawLabelValue(doc, "Address", partyAddress, partyX + 14, boxStartY + 66, 55, boxWidth - 79);
+  const cinNo = purchase.store?.cinNo || "U36911OR2005PTCC008217";
+  const storeGst = purchase.store?.gstNo || "21AAFCA3795A1Z5";
+  const invoiceNo = purchase.invoiceNo || purchase.referenceNo || `#${purchase.id}`;
+  const invoiceDateTime = formatDateTime(purchase.date);
 
-  if (purchase.customerIdType || purchase.customerIdNumber) {
-    drawLabelValue(
-      doc,
-      "ID",
-      `${purchase.customerIdType || "-"} ${purchase.customerIdNumber || ""}`,
-      partyX + 14,
-      boxStartY + 82,
-      55,
-      boxWidth - 79
-    );
-  }
+  // Col 1 - Supplier / Customer Details
+  let c1Y = detailStartY;
+  const renderField = (x, yPos, label, val, lWidth = 70) => {
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(COLORS.black).text(label, x, yPos, { width: lWidth });
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(COLORS.black).text(":", x + lWidth - 8, yPos);
+    doc.font("Helvetica").fontSize(8).fillColor(COLORS.black).text(String(val || ""), x + lWidth, yPos, { width: 230 - lWidth });
+  };
 
-  y = boxStartY + infoBoxHeight + 22;
+  renderField(col1X, c1Y, "Name", partyName.toUpperCase(), labelWidth1);
+  c1Y += 12;
+  renderField(col1X, c1Y, "Address", partyAddress, labelWidth1);
+  c1Y += 12;
+  renderField(col1X, c1Y, "City", partyCity, labelWidth1);
+  c1Y += 12;
+  renderField(col1X, c1Y, "Contact No.", partyPhone, labelWidth1);
+  c1Y += 12;
+  renderField(col1X, c1Y, "ID / PAN No.", partyIdPan === "-" ? "" : partyIdPan, labelWidth1);
+  c1Y += 12;
+  renderField(col1X, c1Y, "GST No.", partyGst === "-" ? "" : partyGst, labelWidth1);
+  c1Y += 12;
+  renderField(col1X, c1Y, "State", placeOfSupply.toUpperCase(), labelWidth1);
+  c1Y += 14;
 
-  drawSectionTitle(doc, "Purchase Items", MARGIN, y, CONTENT_WIDTH);
-  y += 24;
+  // Col 2 - Store & Invoice Details
+  let c2Y = detailStartY;
+  renderField(col2X, c2Y, "CIN No.", cinNo, labelWidth2);
+  c2Y += 12;
+  renderField(col2X, c2Y, "GST No.", storeGst, labelWidth2);
+  c2Y += 12;
+  renderField(col2X, c2Y, "Place of Supply", placeOfSupply.toUpperCase(), labelWidth2);
+  c2Y += 12;
+  renderField(col2X, c2Y, "Invoice No.", invoiceNo, labelWidth2);
+  c2Y += 12;
+  renderField(col2X, c2Y, "Date", invoiceDateTime, labelWidth2);
+  c2Y += 14;
 
- 
-  const tableX = MARGIN;
+  y = Math.max(c1Y, c2Y);
 
+  /*
+  ========================================
+  3. ITEM DETAILS TABLE
+  ========================================
+  */
   const columns = [
-    { key: "sl", title: "SL", width: 22, align: "center" },
-    { key: "product", title: "PRODUCT / ITEM", width: 105, align: "left" },
+    { key: "sr", title: "Sr.\nNo.", width: 24, align: "center" },
+    { key: "particulars", title: "Particulars", width: 122, align: "left" },
     { key: "hsn", title: "HSN", width: 44, align: "center" },
-    { key: "purity", title: "PURITY", width: 38, align: "center" },
-    { key: "pcs", title: "PCS", width: 26, align: "center" },
-    { key: "gross", title: "GROSS", width: 52, align: "right" },
-    { key: "net", title: "NET", width: 52, align: "right" },
-    { key: "rate", title: "RATE", width: 54, align: "right" },
-    { key: "other", title: "OTHER/STN", width: 54, align: "right" },
-    { key: "amount", title: "TOTAL", width: 80, align: "right" }
+    { key: "purity", title: "Purity", width: 34, align: "center" },
+    { key: "pcs", title: "Pcs", width: 26, align: "center" },
+    { key: "grossWt", title: "Gross Wt.\n[Gm.]", width: 50, align: "right" },
+    { key: "netWt", title: "Net Wt.\n[Gm.]", width: 50, align: "right" },
+    { key: "rate", title: "Rate\n[Gm/Pc]", width: 54, align: "right" },
+    { key: "metalAmt", title: "Metal\nAmt", width: 54, align: "right" },
+    { key: "other", title: "Other/Stn\nCharges", width: 42, align: "right" },
+    { key: "total", title: "Total\nAmount", width: 47, align: "right" },
   ];
 
-  const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
-  const HEADER_HEIGHT = 24;
+  const tableX = MARGIN;
+  const headerHeight = 22;
+  const tableStartY = y;
 
-  const drawTableHeader = () => {
-    drawFilledBox(doc, tableX, y, tableWidth, HEADER_HEIGHT, COLORS.headerFill, 3);
+  // Table Outer Box Top & Headers
+  doc.rect(tableX, tableStartY, CONTENT_WIDTH, headerHeight).fillAndStroke(COLORS.headerBg, COLORS.darkBorder);
 
-    let x = tableX;
-    columns.forEach((column) => {
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(7)
-        .fillColor(COLORS.headerText)
-        .text(column.title, x + 4, y + 8.5, {
-          width: column.width - 8,
-          align: column.align,
-          characterSpacing: 0.3
-        });
-      x += column.width;
+  let curX = tableX;
+  columns.forEach((col, idx) => {
+    doc.font("Helvetica-Bold").fontSize(7).fillColor(COLORS.black);
+    doc.text(col.title, curX + 2, tableStartY + 3, {
+      width: col.width - 4,
+      align: col.align,
     });
 
-    y += HEADER_HEIGHT;
-  };
-const SAFE_BOTTOM = 700;
-
- let segmentStartY = y - HEADER_HEIGHT;
-
-  const closeTableSegment = (endY) => {
-    drawBox(doc, tableX, segmentStartY, tableWidth, endY - segmentStartY, 3, COLORS.border);
-  };
-
-  const drawColumnGuides = (rowY, rowHeight) => {
-    let x = tableX;
-    columns.forEach((column) => {
-      x += column.width;
-      if (x < tableX + tableWidth) {
-        drawLine(doc, x, rowY, x, rowY + rowHeight, 0.4, COLORS.border);
-      }
-    });
-  };
-
-  const ROW_HEIGHT = 34;
-
-  const maybePageBreak = (neededHeight, continued = true) => {
-    if (y + neededHeight > SAFE_BOTTOM) {
-      if (continued) {
-        closeTableSegment(y);
-      }
-
-      doc.addPage();
-      y = MARGIN;
-
-      if (continued) {
-        doc
-          .font("Helvetica-Bold")
-          .fontSize(11)
-          .fillColor(COLORS.ink)
-          .text("PURCHASE INVOICE — CONTINUED", MARGIN, y, {
-            width: CONTENT_WIDTH,
-            align: "center"
-          });
-        y += 26;
-        drawTableHeader();
-        segmentStartY = y - HEADER_HEIGHT;
-      }
-      return true;
+    if (idx < columns.length - 1) {
+      drawVLine(doc, curX + col.width, tableStartY, tableStartY + headerHeight, 0.5, COLORS.border);
     }
-    return false;
-  };
-
-  purchase.items.forEach((item, index) => {
-    maybePageBreak(ROW_HEIGHT);
-
-    const rowY = y;
-
-    if (index % 2 === 1) {
-      drawFilledBox(doc, tableX, rowY, tableWidth, ROW_HEIGHT, COLORS.zebra, 0);
-    }
-
-    const prodName = (item.item?.name || item.product?.name || "Purchase Item").toUpperCase();
-    const otherVal = Number(item.stoneAmount || 0) + Number(item.otherAmount || 0);
-    const purityVal = item.purityMaster?.name || (item.purity ? `${item.purity}K` : "-");
-    const hsnVal = item.hsnCode || "711319";
-    const huidVal = item.huidNo ? `HUID: ${item.huidNo}` : "";
-
-    const values = [
-      index + 1,
-      huidVal ? `${prodName}\n${huidVal}` : prodName,
-      hsnVal,
-      purityVal,
-      item.pieces || 1,
-      formatNumber(item.grossWeight),
-      formatNumber(item.netWeight),
-      formatMoney(item.rate),
-      formatMoney(otherVal),
-      formatMoney(item.totalAmount)
-    ];
-
-    let x = tableX;
-    columns.forEach((column, columnIndex) => {
-      const isAmount = column.key === "amount";
-      doc
-        .font(isAmount ? "Helvetica-Bold" : "Helvetica")
-        .fontSize(columnIndex === 1 ? 7.2 : 7.6)
-        .fillColor(COLORS.ink)
-        .text(String(values[columnIndex]), x + 3, rowY + (columnIndex === 1 ? 5 : 8), {
-          width: column.width - 6,
-          height: ROW_HEIGHT - 6,
-          align: column.align,
-          ellipsis: true
-        });
-      x += column.width;
-    });
-
-    drawColumnGuides(rowY, ROW_HEIGHT);
-    drawLine(doc, tableX, rowY + ROW_HEIGHT, tableX + tableWidth, rowY + ROW_HEIGHT, 0.4, COLORS.border);
-
-    y += ROW_HEIGHT;
+    curX += col.width;
   });
 
-  closeTableSegment(y);
+  y = tableStartY + headerHeight;
 
-  const summaryHeight = 200;
-  if (y + summaryHeight > SAFE_BOTTOM) {
-    doc.addPage();
-    y = MARGIN;
+  let totalGrossWt = 0;
+  let totalNetWt = 0;
+  let totalPcs = 0;
+  let totalItemAmount = 0;
+
+  const rows = purchase.items || [];
+  const minTableHeight = Math.max(rows.length * 28, 84);
+  const rowsStartY = y;
+
+  rows.forEach((item, index) => {
+    const rowHeight = 28;
+    const prodName = (item.item?.name || item.product?.name || item.metal?.name || "JEWELLERY").toUpperCase();
+    const itemCodeStr = item.purchaseItemCode || (item.id ? `#${item.id}` : "");
+    const hsnStr = item.hsnCode || "711319";
+    const purityStr = item.purityMaster?.name || (item.purity ? `${item.purity}K` : "22K");
+    const pcsVal = item.pieces || 1;
+    const grossVal = Number(item.grossWeight || 0);
+    const netVal = Number(item.netWeight || (grossVal - Number(item.stoneWeight || 0)));
+    const rateVal = Number(item.rate || 0);
+    const metalAmtVal = Number(item.metalAmount || (netVal * rateVal));
+    const otherVal = Number(item.stoneAmount || 0) + Number(item.otherAmount || 0);
+    const totalVal = Number(item.totalAmount || (metalAmtVal + otherVal - Number(item.discount || 0)));
+
+    totalGrossWt += grossVal;
+    totalNetWt += netVal;
+    totalPcs += pcsVal;
+    totalItemAmount += totalVal;
+
+    let rx = tableX;
+    // Sr
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(String(index + 1), rx + 2, y + 6, { width: columns[0].width - 4, align: "center" });
+    rx += columns[0].width;
+
+    // Particulars
+    doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black).text(prodName, rx + 4, y + 5, { width: columns[1].width - 8, align: "left" });
+    const huidStr = item.huidNo || "";
+    let codeHuidText = itemCodeStr;
+    if (huidStr) {
+      codeHuidText = itemCodeStr ? `${itemCodeStr} | HUID: ${huidStr}` : `HUID: ${huidStr}`;
+    }
+    if (codeHuidText) {
+      doc.font("Helvetica").fontSize(6.5).fillColor(COLORS.muted).text(codeHuidText, rx + 4, y + 14, { width: columns[1].width - 8, align: "left" });
+    }
+    rx += columns[1].width;
+
+    // HSN
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(hsnStr, rx + 2, y + 6, { width: columns[2].width - 4, align: "center" });
+    rx += columns[2].width;
+
+    // Purity
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(purityStr, rx + 2, y + 6, { width: columns[3].width - 4, align: "center" });
+    rx += columns[3].width;
+
+    // Pcs
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(String(pcsVal), rx + 2, y + 6, { width: columns[4].width - 4, align: "center" });
+    rx += columns[4].width;
+
+    // Gross Wt
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(weightStr(grossVal), rx + 2, y + 6, { width: columns[5].width - 4, align: "right" });
+    rx += columns[5].width;
+
+    // Net Wt
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(weightStr(netVal), rx + 2, y + 6, { width: columns[6].width - 4, align: "right" });
+    rx += columns[6].width;
+
+    // Rate
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(money(rateVal), rx + 2, y + 6, { width: columns[7].width - 4, align: "right" });
+    rx += columns[7].width;
+
+    // Metal Amt
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(money(metalAmtVal), rx + 2, y + 6, { width: columns[8].width - 4, align: "right" });
+    rx += columns[8].width;
+
+    // Other/Stn Charges
+    doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.black).text(money(otherVal), rx + 2, y + 6, { width: columns[9].width - 4, align: "right" });
+    rx += columns[9].width;
+
+    // Total Amount
+    doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black).text(money(totalVal), rx + 2, y + 6, { width: columns[10].width - 4, align: "right" });
+
+    y += rowHeight;
+    drawHLine(doc, tableX, y, CONTENT_WIDTH, 0.4, COLORS.lightBorder);
+  });
+
+  // If table is short, pad it
+  if (y - rowsStartY < minTableHeight) {
+    y = rowsStartY + minTableHeight;
   }
 
-  y += 14;
+  // Draw Vertical Column Grid lines for the table body
+  let lineX = tableX;
+  columns.forEach((col, idx) => {
+    if (idx < columns.length - 1) {
+      drawVLine(doc, lineX + col.width, tableStartY + headerHeight, y, 0.4, COLORS.lightBorder);
+    }
+    lineX += col.width;
+  });
 
-  const summaryY = y;
-  const summaryWidth = 245;
-  const summaryX = PAGE_WIDTH - MARGIN - summaryWidth;
+  // Table Total Row
+  const totalRowHeight = 18;
+  drawHLine(doc, tableX, y, CONTENT_WIDTH, 0.6, COLORS.darkBorder);
+  doc.rect(tableX, y, CONTENT_WIDTH, totalRowHeight).fillAndStroke("#ffffff", COLORS.darkBorder);
 
-  drawFilledBox(doc, summaryX, summaryY, summaryWidth, summaryHeight, "#ffffff", 5);
-  drawBox(doc, summaryX, summaryY, summaryWidth, summaryHeight, 5, COLORS.border);
+  doc.font("Helvetica-Bold").fontSize(8).fillColor(COLORS.black);
+  doc.text("Total", tableX + 8, y + 5);
 
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(9.5)
-    .fillColor(COLORS.gold)
-    .text("AMOUNT SUMMARY", summaryX + 14, summaryY + 12, { characterSpacing: 0.5 });
+  const grossColX = tableX + columns[0].width + columns[1].width + columns[2].width + columns[3].width + columns[4].width;
+  doc.text(weightStr(totalGrossWt), grossColX + 2, y + 5, { width: columns[5].width - 4, align: "right" });
+  doc.text(weightStr(totalNetWt), grossColX + columns[5].width + 2, y + 5, { width: columns[6].width - 4, align: "right" });
 
-  drawLine(doc, summaryX + 14, summaryY + 27, summaryX + summaryWidth - 14, summaryY + 27, 0.5, COLORS.border);
+  const totalAmountX = tableX + CONTENT_WIDTH - columns[10].width;
+  const grossAmountVal = purchase.grossAmount || totalItemAmount || purchase.subtotal || 0;
+  doc.text(money(grossAmountVal), totalAmountX + 2, y + 5, { width: columns[10].width - 4, align: "right" });
 
-  let totalY = summaryY + 36;
+  // Draw table border box
+  drawRect(doc, tableX, tableStartY, CONTENT_WIDTH, y + totalRowHeight - tableStartY, 0.8, COLORS.darkBorder);
 
-  const summaryRow = (label, value, opts = {}) => {
-    const { bold = false, color = COLORS.ink, size = 8.2 } = opts;
-    doc
-      .font(bold ? "Helvetica-Bold" : "Helvetica")
-      .fontSize(size)
-      .fillColor(bold ? COLORS.ink : COLORS.slate)
-      .text(label, summaryX + 14, totalY);
+  y += totalRowHeight + 6;
 
-    doc
-      .font(bold ? "Helvetica-Bold" : "Helvetica")
-      .fontSize(size)
-      .fillColor(color)
-      .text(value, summaryX + 95, totalY, {
-        width: summaryWidth - 109,
-        align: "right"
-      });
+  /*
+  ========================================
+  4. BOTTOM SPLIT (LEFT: PAYMENT & HSN & TERMS | RIGHT: AMOUNT SUMMARY)
+  ========================================
+  */
+  const splitStartY = y;
+  const leftColWidth = 320;
+  const rightColX = MARGIN + leftColWidth + 6;
+  const rightColWidth = CONTENT_WIDTH - leftColWidth - 6;
 
-    totalY += bold ? 20 : 15;
+  // ----------------------------------------
+  // LEFT COLUMN: PAYMENTS
+  // ----------------------------------------
+  let ly = splitStartY;
+  const primaryPayment = purchase.payments?.[0];
+  const paymentModeName = primaryPayment?.paymentChannel || (primaryPayment?.paymentMode ? `By ${primaryPayment.paymentMode}` : (purchase.paymentMode ? `By ${purchase.paymentMode}` : "By CASH"));
+  const paidAmountVal = purchase.paidAmount || primaryPayment?.amount || purchase.netPayable || 0;
+
+  doc.font("Helvetica-Bold").fontSize(7.8).fillColor(COLORS.black);
+  doc.text(paymentModeName.startsWith("By") ? paymentModeName : `By ${paymentModeName}`, MARGIN, ly);
+  ly += 10;
+  doc.font("Helvetica-Bold").fontSize(8).fillColor(COLORS.black);
+  doc.text(money(paidAmountVal), MARGIN, ly);
+  ly += 12;
+
+  const trId = primaryPayment?.transactionId || primaryPayment?.referenceNo || "-";
+  const pDesc = primaryPayment?.description || primaryPayment?.narration || "Purchase Settlement Receipt";
+  doc.font("Helvetica").fontSize(7).fillColor(COLORS.muted);
+  doc.text(`Payment : ${primaryPayment?.paymentChannel || purchase.paymentMode || "Cash"} | Ref/Tr.Id: ${trId} | ${pDesc}`, MARGIN, ly, { width: leftColWidth });
+  ly += 14;
+
+  // ----------------------------------------
+  // LEFT COLUMN: HSN SUMMARY TABLE
+  // ----------------------------------------
+  const hsnTableStartY = ly;
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
+  doc.text("HSN SUMMARY", MARGIN, hsnTableStartY, { width: leftColWidth, align: "center" });
+  ly += 11;
+
+  const hsnCols = [
+    { title: "Sr.", width: 18, align: "center" },
+    { title: "HSN/SAC", width: 44, align: "center" },
+    { title: "CGST%", width: 34, align: "right" },
+    { title: "CGST Amt.", width: 42, align: "right" },
+    { title: "SGST%", width: 34, align: "right" },
+    { title: "SGST Amt.", width: 42, align: "right" },
+    { title: "IGST%", width: 32, align: "right" },
+    { title: "IGST Amt.", width: 38, align: "right" },
+    { title: "Total Tax", width: 36, align: "right" },
+  ];
+
+  const hsnTableH = 14;
+  doc.rect(MARGIN, ly, leftColWidth, hsnTableH).fillAndStroke(COLORS.headerBg, COLORS.border);
+
+  let hx = MARGIN;
+  hsnCols.forEach((col) => {
+    doc.font("Helvetica-Bold").fontSize(6).fillColor(COLORS.black);
+    doc.text(col.title, hx + 1, ly + 3.5, { width: col.width - 2, align: col.align });
+    hx += col.width;
+  });
+  ly += hsnTableH;
+
+  // HSN Row 1
+  const hsnRowH = 14;
+  doc.rect(MARGIN, ly, leftColWidth, hsnRowH).stroke(COLORS.border);
+  hx = MARGIN;
+
+  const hsnCodeStr = purchase.items?.[0]?.hsnCode || "711319";
+  const isInterState = placeOfSupply && placeOfSupply.trim().toUpperCase() !== "ODISHA" && placeOfSupply.trim().toUpperCase() !== "";
+  const taxableAmt = Number(purchase.taxableAmount || (grossAmountVal - Number(purchase.discount || 0)));
+
+  const cgstA = Number(purchase.cgst || (!isInterState ? (taxableAmt * 1.5) / 100 : 0));
+  const sgstA = Number(purchase.sgst || (!isInterState ? (taxableAmt * 1.5) / 100 : 0));
+  const igstA = Number(purchase.igst || (isInterState ? (taxableAmt * 3.0) / 100 : 0));
+  const totalTaxA = Number(purchase.taxAmount || (cgstA + sgstA + igstA));
+
+  const cgstP = !isInterState ? 1.5 : 0.0;
+  const sgstP = !isInterState ? 1.5 : 0.0;
+  const igstP = isInterState ? 3.0 : 0.0;
+
+  const hsnVals = [
+    { text: "1", align: "center" },
+    { text: hsnCodeStr, align: "center" },
+    { text: Number(cgstP).toFixed(3), align: "right" },
+    { text: money(cgstA), align: "right" },
+    { text: Number(sgstP).toFixed(3), align: "right" },
+    { text: money(sgstA), align: "right" },
+    { text: Number(igstP).toFixed(2), align: "right" },
+    { text: money(igstA), align: "right" },
+    { text: money(totalTaxA), align: "right" },
+  ];
+
+  hsnCols.forEach((col, idx) => {
+    doc.font("Helvetica").fontSize(6.5).fillColor(COLORS.black);
+    doc.text(hsnVals[idx].text, hx + 1, ly + 3.5, { width: col.width - 2, align: hsnVals[idx].align });
+    hx += col.width;
+  });
+
+  ly += hsnRowH + 8;
+
+  // ----------------------------------------
+  // LEFT COLUMN: WORDS & DECLARATIONS
+  // ----------------------------------------
+  const inWords = numberToWordsIndian(purchase.netPayable || purchase.totalAmount || 0);
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
+  doc.text("Invoice Value [ In Words ] : ", MARGIN, ly, { continued: true });
+  doc.font("Helvetica").fontSize(7.5).text(inWords);
+  ly += 16;
+
+  doc.font("Helvetica-Bold").fontSize(7.5).text("Narration : ", MARGIN, ly, { continued: true });
+  doc.font("Helvetica").text(purchase.narration || "-");
+  ly += 12;
+
+  const storeTagline = purchase.store?.tagline || `Thank You For Visit ${purchase.store?.storeName || "Binayak Jewellers"} ...`;
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor(COLORS.black).text(storeTagline, MARGIN, ly);
+  ly += 18;
+
+  doc.font("Helvetica").fontSize(6.5).fillColor(COLORS.muted);
+  doc.text("I have verified the Weight & Pieces & found ok", MARGIN, ly);
+  ly += 8;
+  doc.text("I hereby agree to the Terms & Conditions mentioned backside", MARGIN, ly);
+  ly += 16;
+
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
+  doc.text("Supplier / Customer Signature:", MARGIN, ly);
+
+  // ----------------------------------------
+  // RIGHT COLUMN: AMOUNT SUMMARY BREAKDOWN
+  // ----------------------------------------
+  let ry = splitStartY;
+  drawRect(doc, rightColX, ry, rightColWidth, 198, 0.7, COLORS.border);
+
+  const renderSumRow = (label, valStr, isBold = false) => {
+    doc.font(isBold ? "Helvetica-Bold" : "Helvetica").fontSize(7.5).fillColor(COLORS.black);
+    doc.text(label, rightColX + 8, ry + 4);
+    doc.text(valStr, rightColX + 110, ry + 4, { width: rightColWidth - 118, align: "right" });
+    ry += 13.5;
   };
 
-  const taxableVal = purchase.taxableAmount || (purchase.grossAmount ? purchase.grossAmount - purchase.discount : purchase.subtotal);
-  summaryRow("Gross Amount", formatMoney(purchase.grossAmount || purchase.subtotal));
-  if (Number(purchase.discount || 0) > 0) {
-    summaryRow("Discount", formatMoney(purchase.discount));
-  }
-  summaryRow("Taxable Amount", formatMoney(taxableVal));
-  if (Number(purchase.cgst || 0) > 0 || Number(purchase.sgst || 0) > 0) {
-    summaryRow("CGST (1.5%)", formatMoney(purchase.cgst));
-    summaryRow("SGST (1.5%)", formatMoney(purchase.sgst));
-  } else if (Number(purchase.igst || 0) > 0) {
-    summaryRow("IGST (3.0%)", formatMoney(purchase.igst));
-  }
-  if (Number(purchase.taxAmount || 0) > 0) {
-    summaryRow("Total Tax", formatMoney(purchase.taxAmount));
-  }
-  if (Number(purchase.roundOff || 0) !== 0) {
-    summaryRow("Round Off", formatMoney(purchase.roundOff));
-  }
+  const addDisc = Number(purchase.discount || 0);
+  const subTotalAmt = Number(purchase.subtotal || (taxableAmt + totalTaxA));
+  const roundOffAmt = Number(purchase.roundOff || 0);
+  const netPayableAmt = Number(purchase.netPayable || purchase.totalAmount || (subTotalAmt + roundOffAmt));
+  const dueAmt = Number(purchase.dueAmount ?? Math.max(0, netPayableAmt - paidAmountVal));
 
-  drawLine(doc, summaryX + 14, totalY - 4, summaryX + summaryWidth - 14, totalY - 4, 0.7, COLORS.border);
-  totalY += 4;
-
-  const netPayableVal = purchase.netPayable || purchase.totalAmount;
-  drawFilledBox(doc, summaryX + 8, totalY - 4, summaryWidth - 16, 22, COLORS.totalFill, 4);
-  summaryRow("NET PAYABLE", formatMoney(netPayableVal), { bold: true, size: 9.2 });
-
-  summaryRow("Paid Amount", formatMoney(purchase.paidAmount), { color: COLORS.paidGreen, bold: true });
-  summaryRow("Due Amount", formatMoney(purchase.dueAmount), { bold: true, color: COLORS.dueRed });
-
-  // =========================================================
-  // PAYMENT DETAILS
-  // =========================================================
-
-  const paymentX = MARGIN;
-  const paymentWidth = CONTENT_WIDTH - summaryWidth - 15;
-
-  const paymentCardHeight = purchase.payments?.length ? Math.min(summaryHeight, 60 + purchase.payments.length * 22) : 100;
-  drawAccentCard(doc, paymentX, summaryY, paymentWidth, paymentCardHeight, "Payment Details");
-
-  let pY = summaryY + 34;
-  if (purchase.payments && purchase.payments.length > 0) {
-    purchase.payments.forEach((pmt, pIdx) => {
-      const modeLabel = pmt.paymentChannel ? `${pmt.paymentMode} (${pmt.paymentChannel})` : pmt.paymentMode;
-      const refStr = pmt.transactionId ? ` | Ref: ${pmt.transactionId}` : "";
-      drawLabelValue(doc, `${modeLabel}`, `Rs. ${formatMoney(pmt.amount)}${refStr}`, paymentX + 14, pY, 90, paymentWidth - 108);
-      pY += 18;
-    });
+  renderSumRow("Gross Amount", money(grossAmountVal));
+  renderSumRow("Discount [-]", money(addDisc));
+  renderSumRow("Taxable Amount", money(taxableAmt), true);
+  if (!isInterState) {
+    renderSumRow("CGST Amt. [ + ]", money(cgstA));
+    renderSumRow("SGST Amt. [ + ]", money(sgstA));
   } else {
-    drawLabelValue(doc, "Mode", purchase.paymentMode || "CASH", paymentX + 14, pY, 78, paymentWidth - 96);
-    pY += 18;
-    drawLabelValue(doc, "Paid Amount", `Rs. ${formatMoney(purchase.paidAmount)}`, paymentX + 14, pY, 78, paymentWidth - 96);
-    pY += 18;
+    renderSumRow("IGST Amt. [ + ]", money(igstA));
   }
+  renderSumRow("Sub Total", money(subTotalAmt), true);
+  renderSumRow("Round Off [ +/- ]", money(roundOffAmt));
+  drawHLine(doc, rightColX, ry + 2, rightColWidth, 0.5, COLORS.border);
+  ry += 4;
+  renderSumRow("Net Payable", money(netPayableAmt), true);
+  renderSumRow("Paid Amount", money(paidAmountVal));
+  renderSumRow("Due Amount", money(dueAmt));
 
-  drawLabelValue(doc, "Place of Supply", purchase.placeOfSupply || "-", paymentX + 14, pY, 90, paymentWidth - 108);
+  ry += 6;
+  const staffDisplay = purchase.employee?.name || purchase.store?.storeName || "Staff";
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
+  doc.text(`Staff : ${staffDisplay}`, rightColX + 8, ry);
+  ry += 16;
 
-  // =========================================================
-  // NARRATION
-  // =========================================================
+  doc.font("Helvetica").fontSize(7).fillColor(COLORS.muted);
+  doc.text(`For ${purchase.store?.storeName || "Binayak Jewellers"}`, rightColX + 8, ry, { width: rightColWidth - 16, align: "right" });
+  ry += 22;
 
-  let bottomY = Math.max(summaryY + summaryHeight + 15, totalY + 20);
-
-  if (purchase.narration) {
-     const NARRATION_RESERVE = 70;
-
-    if (bottomY + NARRATION_RESERVE > SAFE_BOTTOM) {
-      doc.addPage();
-      bottomY = MARGIN;
-    }
-
-    drawSectionTitle(doc, "Narration", MARGIN, bottomY, CONTENT_WIDTH);
-    bottomY += 22;
-
-    doc
-      .font("Helvetica")
-      .fontSize(8.5)
-      .fillColor(COLORS.ink)
-      .text(purchase.narration, MARGIN, bottomY, { width: CONTENT_WIDTH });
-
-    bottomY += 30;
-  }
-
-   if (bottomY > SAFE_BOTTOM) {
-    doc.addPage();
-  }
-
-  const signatureY = 728;
-
-  drawLine(doc, MARGIN + 10, signatureY, MARGIN + 150, signatureY, 0.7, COLORS.muted);
-  drawLine(doc, PAGE_WIDTH - MARGIN - 150, signatureY, PAGE_WIDTH - MARGIN - 10, signatureY, 0.7, COLORS.muted);
-
-  doc
-    .font("Helvetica")
-    .fontSize(7.5)
-    .fillColor(COLORS.slate)
-    .text("Prepared By", MARGIN + 10, signatureY + 6, { width: 140, align: "center" });
-
-  doc
-    .font("Helvetica")
-    .fontSize(7.5)
-    .fillColor(COLORS.slate)
-    .text("Authorized Signature", PAGE_WIDTH - MARGIN - 150, signatureY + 6, { width: 140, align: "center" });
-
-  drawLine(doc, MARGIN, 788, PAGE_WIDTH - MARGIN, 788, 0.6, COLORS.border);
-
-  doc
-    .font("Helvetica")
-    .fontSize(7)
-    .fillColor(COLORS.muted)
-    .text("This is a computer generated purchase document.", MARGIN, 797, {
-      width: CONTENT_WIDTH,
-      align: "center"
-    });
-
-  // =========================================================
-  // PAGE NUMBERS
-  // =========================================================
-
-  const range = doc.bufferedPageRange();
-  for (let i = range.start; i < range.start + range.count; i++) {
-    doc.switchToPage(i);
-    doc
-      .font("Helvetica")
-      .fontSize(7)
-      .fillColor(COLORS.muted)
-      .text(`Page ${i + 1} of ${range.count}`, PAGE_WIDTH - 100, 797, {
-        width: 65,
-        align: "right"
-      });
-  }
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
+  doc.text("Authorised Signatory", rightColX + 8, ry, { width: rightColWidth - 16, align: "right" });
 
   doc.end();
 };

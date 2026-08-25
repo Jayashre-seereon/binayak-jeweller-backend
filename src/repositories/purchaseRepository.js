@@ -6,6 +6,8 @@ export const createPurchaseRepo = async (data) => {
     include: {
       party: true,
       employee: true,
+      store: true,
+      payments: true,
       items: {
         include: {
           item: true,
@@ -28,6 +30,8 @@ export const getPurchasesByStore = async (storeId) => {
     include: {
       party: true,
       employee: true,
+      store: true,
+      payments: true,
       items: {
         include: {
           item: true,
@@ -73,6 +77,7 @@ export const getPurchasesByStoreAndPhone = async (
     include: {
       party: true,
       employee: true,
+      store: true,
       payments: true,
       items: {
         include: {
@@ -99,6 +104,8 @@ export const getPurchaseByIdRepo = async (id) => {
     include: {
       party: true,
       employee: true,
+      store: true,
+      payments: true,
       items: {
         include: {
           item: true,
@@ -151,6 +158,8 @@ export const updatePurchaseRepo = async (id, data) => {
     include: {
       party: true,
       employee: true,
+      store: true,
+      payments: true,
       items: {
         include: {
           item: true,

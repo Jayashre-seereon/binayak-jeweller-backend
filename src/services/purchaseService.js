@@ -1,4 +1,5 @@
 import prisma from "../config/db.js";
+import { numberToWordsIndian } from "../utils/numberToWords.js";
 import {
   createPurchaseRepo,
   getPurchasesByStore,
@@ -174,7 +175,6 @@ export const createPurchase = async (data, storeId) => {
 
   const totalPaid = Math.round((purchasePayments.reduce((s, p) => s + Number(p.amount || 0), 0) + Number.EPSILON) * 100) / 100;
   const netPayable = Number(data.netPayable || data.totalAmount || 0);
-
   let customerId = null;
   if (data.customerPhone?.trim()) {
     const customer = await getOrCreateCustomerService(

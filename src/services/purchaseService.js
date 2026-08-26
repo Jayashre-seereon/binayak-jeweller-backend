@@ -14,6 +14,19 @@ import { getOrCreateCustomerService } from "./customerService.js";
 
 const purchaseError = (message) => new Error(message);
 
+const hasInventoryForPurchase = async (purchaseId) => {
+  const inventory = await prisma.inventory.findFirst({
+    where: {
+      purchaseId: Number(purchaseId),
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return Boolean(inventory);
+};
+
 const buildPurchaseItemCode = (id) => `PITM-${String(id).padStart(4, "0")}`;
 
 const sanitizePurchaseItem = (purchaseItem) => {
@@ -22,6 +35,29 @@ const sanitizePurchaseItem = (purchaseItem) => {
     purchaseitemcode: purchaseItem?.purchaseItemCode || buildPurchaseItemCode(purchaseItem.id),
   };
 };
+
+const withPurchaseItemUnits = (purchase) => ({
+  ...purchase,
+  unit: "₹",
+  weightUnit: "gm",
+  items: Array.isArray(purchase?.items)
+    ? purchase.items.map((item) => ({
+        ...sanitizePurchaseItem(item),
+        unit: "₹",
+        weightUnit: "gm",
+        grossWeightUnit: "gm",
+        stoneWeightUnit: "gm",
+        netWeightUnit: "gm",
+        actualWeightUnit: "gm",
+        balanceWeightUnit: "gm",
+        rateUnit: "₹/gm",
+        metalAmountUnit: "₹",
+        stoneAmountUnit: "₹",
+        otherAmountUnit: "₹",
+        totalAmountUnit: "₹",
+      }))
+    : purchase?.items,
+});
 
 const attachPurchaseItemCodes = async (purchase) => {
   if (!purchase?.items?.length) return purchase;
@@ -37,10 +73,10 @@ const attachPurchaseItemCodes = async (purchase) => {
     }
   }
 
-  return {
+  return withPurchaseItemUnits({
     ...purchase,
     items: purchase.items.map(sanitizePurchaseItem)
-  };
+  });
 };
 
 export const createPurchase = async (data, storeId) => {
@@ -276,8 +312,10 @@ export const createPurchase = async (data, storeId) => {
     }
 
     try {
-      return await attachPurchaseItemCodes(
-        await createPurchaseRepo(buildPurchaseData(invoiceNo))
+      return withPurchaseItemUnits(
+        await attachPurchaseItemCodes(
+          await createPurchaseRepo(buildPurchaseData(invoiceNo))
+        )
       );
     } catch (error) {
       lastError = error;
@@ -341,6 +379,12 @@ export const updatePurchase = async (id, data, storeId) => {
 
   if (purchase.storeId !== numericStoreId) {
     throw purchaseError("You do not have access to this purchase.");
+  }
+
+  if (await hasInventoryForPurchase(purchase.id)) {
+    throw purchaseError(
+      "This purchase has already been added to inventory and cannot be edited."
+    );
   }
 
   const updateData = {};
@@ -601,7 +645,7 @@ export const updatePurchase = async (id, data, storeId) => {
     };
   }
 
-  return await attachPurchaseItemCodes(await updatePurchaseRepo(Number(id), updateData));
+  return withPurchaseItemUnits(await attachPurchaseItemCodes(await updatePurchaseRepo(Number(id), updateData)));
 };
 
 export const deletePurchase = async (id, storeId) => {
@@ -613,6 +657,12 @@ export const deletePurchase = async (id, storeId) => {
 
   if (purchase.storeId !== Number(storeId)) {
     throw purchaseError("You do not have access to this purchase.");
+  }
+
+  if (await hasInventoryForPurchase(purchase.id)) {
+    throw purchaseError(
+      "This purchase has already been added to inventory and cannot be deleted."
+    );
   }
 
   return await deletePurchaseRepo(Number(id));

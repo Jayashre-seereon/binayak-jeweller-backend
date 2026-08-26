@@ -193,6 +193,12 @@ export const updateAdvanceReceiveService = async (
     throw new Error("Advance receive not found");
   }
 
+  if (resolveAdvanceStatus(existing) === "FULLY_ADJUSTED") {
+    throw new Error(
+      "This advance receive is fully adjusted and cannot be edited."
+    );
+  }
+
   const updateData = {};
 
   if (data.customerName !== undefined) {
@@ -294,6 +300,12 @@ export const deleteAdvanceReceiveService = async (
 
   if (!existing) {
     throw new Error("Advance receive not found");
+  }
+
+  if (resolveAdvanceStatus(existing) === "FULLY_ADJUSTED") {
+    throw new Error(
+      "This advance receive is fully adjusted and cannot be deleted."
+    );
   }
 
   await advanceReceiveRepo.deleteAdvanceReceiveRepo(

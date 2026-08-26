@@ -25,6 +25,31 @@ const roundMoney = (value) =>
 const formatMoney = (value) =>
   roundMoney(value).toFixed(2);
 
+const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== "";
+
+const withSaleItemUnits = (sale) => ({
+  ...sale,
+  unit: "₹",
+  weightUnit: "gm",
+  items: Array.isArray(sale?.items)
+    ? sale.items.map((item) => ({
+        ...item,
+        unit: "₹",
+        weightUnit: "gm",
+        rateUnit: "₹/gm",
+        makingChargeUnit: item?.makingChargeType === "PER_GRAM" ? "₹/gm" : item?.makingChargeType === "PERCENT" ? "%" : "₹",
+        grossWeightUnit: "gm",
+        stoneWeightUnit: "gm",
+        netWeightUnit: "gm",
+        metalAmountUnit: "₹",
+        makingChargesUnit: "₹",
+        stoneAmountUnit: "₹",
+        otherChargesUnit: "₹",
+        totalAmountUnit: "₹",
+      }))
+    : sale?.items,
+});
+
 const saleError = (message) => new Error(message);
 
 const validateInventory = async (tx, inventoryId, storeId) => {
@@ -305,22 +330,19 @@ export const createSaleService = async (data, storeId, user = null) => {
         Math.max(0, grossAmount - offerDiscount - discount)
       );
 
-      let cgstPercent = 0;
-      let cgstAmount = 0;
-      let sgstPercent = 0;
-      let sgstAmount = 0;
-      let igstPercent = 0;
-      let igstAmount = 0;
+      const cgstPercent = hasValue(data.cgstPercent) ? Number(data.cgstPercent || 0) : (isInterState ? 0 : 1.5);
+      const sgstPercent = hasValue(data.sgstPercent) ? Number(data.sgstPercent || 0) : (isInterState ? 0 : 1.5);
+      const igstPercent = hasValue(data.igstPercent) ? Number(data.igstPercent || 0) : (isInterState ? 3.0 : 0);
 
-      if (isInterState) {
-        igstPercent = 3.0;
-        igstAmount = roundMoney((taxableAmount * 3.0) / 100);
-      } else {
-        cgstPercent = 1.5;
-        cgstAmount = roundMoney((taxableAmount * 1.5) / 100);
-        sgstPercent = 1.5;
-        sgstAmount = roundMoney((taxableAmount * 1.5) / 100);
-      }
+      const cgstAmount = hasValue(data.cgstAmount)
+        ? roundMoney(Number(data.cgstAmount || 0))
+        : roundMoney((taxableAmount * cgstPercent) / 100);
+      const sgstAmount = hasValue(data.sgstAmount)
+        ? roundMoney(Number(data.sgstAmount || 0))
+        : roundMoney((taxableAmount * sgstPercent) / 100);
+      const igstAmount = hasValue(data.igstAmount)
+        ? roundMoney(Number(data.igstAmount || 0))
+        : roundMoney((taxableAmount * igstPercent) / 100);
 
       const totalTax = roundMoney(cgstAmount + sgstAmount + igstAmount);
       const subTotal = roundMoney(taxableAmount + totalTax);
@@ -506,8 +528,8 @@ export const createSaleService = async (data, storeId, user = null) => {
         }
       }
 
-      const totalDeductions = roundMoney(totalAdvanceAdjusted + totalOldGoldAdjusted);
-      const lessUrd = roundMoney(Number(data.lessUrd || 0) + totalOldGoldAdjusted);
+      const lessUrd = roundMoney(Number(data.lessUrd || 0));
+      const totalDeductions = roundMoney(totalAdvanceAdjusted + totalOldGoldAdjusted + lessUrd);
 
       const unroundedNet = roundMoney(Math.max(0, subTotal - totalDeductions));
       let roundOff = 0;
@@ -677,7 +699,7 @@ export const createSaleService = async (data, storeId, user = null) => {
         });
       }
 
-      return sale;
+      return withSaleItemUnits(sale);
     },
     {
       isolationLevel: "Serializable",
@@ -698,7 +720,7 @@ export const getSaleByIdService = async (id, storeId) => {
     );
   }
 
-  return sale;
+  return withSaleItemUnits(sale);
 };
 
 export const getSaleCountService = async (storeId) => {

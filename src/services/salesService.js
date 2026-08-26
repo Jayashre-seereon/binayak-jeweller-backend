@@ -582,6 +582,12 @@ export const createSaleService = async (data, storeId, user = null) => {
         );
       }
 
+      if (Math.abs(paidAmount - netPayable) > 0.01) {
+        throw saleError(
+          `Paid amount (${formatMoney(paidAmount)}) must exactly match net payable (${formatMoney(netPayable)}).`
+        );
+      }
+
       const dueAmount = roundMoney(Math.max(0, netPayable - paidAmount));
 
       /*

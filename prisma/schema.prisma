@@ -680,6 +680,7 @@ model AdvanceReceive {
   adjustedAmount Float             @default(0)
   balanceAmount  Float             @default(0)
   status         String            @default("AVAILABLE")
+  receiveDate    DateTime          @default(now())
 
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])

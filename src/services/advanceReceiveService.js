@@ -11,6 +11,17 @@ const validateStoreId = (storeId) => {
   return id;
 };
 
+const parseReceiveDate = (value) => {
+  if (!value) return new Date();
+  const raw = String(value).slice(0, 10);
+  const [year, month, day] = raw.split("-").map(Number);
+  if (!year || !month || !day) {
+    const fallback = new Date(value);
+    return Number.isNaN(fallback.getTime()) ? new Date() : fallback;
+  }
+  return new Date(year, month - 1, day, 12, 0, 0);
+};
+
 export const createAdvanceReceiveService = async (
   data,
   storeId
@@ -69,13 +80,40 @@ export const createAdvanceReceiveService = async (
       adjustedAmount: 0,
       balanceAmount: amount,
       status: "AVAILABLE",
+      receiveDate: parseReceiveDate(data.date || data.receiveDate),
       paymentMode: data.paymentMode,
       specification:
         data.specification?.trim() || null,
       storeId: parsedStoreId,
     });
 
-  return advance;
+  return serializeAdvance(advance);
+};
+
+const resolveAdvanceStatus = (row) => {
+  const amount = Number(row.amount || 0);
+  const adjusted = Number(row.adjustedAmount || 0);
+  const balance = Number(
+    row.balanceAmount ?? Math.max(0, amount - adjusted)
+  );
+  if (balance <= 0.01 || adjusted >= amount - 0.01) return "FULLY_ADJUSTED";
+  if (adjusted > 0) return "PARTIALLY_ADJUSTED";
+  return "AVAILABLE";
+};
+
+const serializeAdvance = (row) => {
+  const amount = Number(row.amount || 0);
+  const adjustedAmount = Number(row.adjustedAmount || 0);
+  const balanceAmount = Math.max(0, amount - adjustedAmount);
+  const status = resolveAdvanceStatus({ ...row, amount, adjustedAmount, balanceAmount });
+  return {
+    ...row,
+    amount,
+    adjustedAmount,
+    balanceAmount,
+    status,
+    date: row.receiveDate || row.createdAt,
+  };
 };
 
 export const getAdvanceReceivesService = async (
@@ -83,9 +121,11 @@ export const getAdvanceReceivesService = async (
 ) => {
   const parsedStoreId = validateStoreId(storeId);
 
-  return await advanceReceiveRepo.getAdvanceReceivesRepo(
+  const rows = await advanceReceiveRepo.getAdvanceReceivesRepo(
     parsedStoreId
   );
+
+  return rows.map(serializeAdvance);
 };
 
 export const getAdvanceReceivesByContactService = async (
@@ -99,10 +139,12 @@ export const getAdvanceReceivesByContactService = async (
     throw new Error("Contact number is required");
   }
 
-  return await advanceReceiveRepo.getAdvanceReceivesByContactRepo(
-    parsedStoreId,
-    phone
-  );
+  return (
+    await advanceReceiveRepo.getAdvanceReceivesByContactRepo(
+      parsedStoreId,
+      phone
+    )
+  ).map(serializeAdvance);
 };
 
 export const getAdvanceReceiveByIdService = async (
@@ -126,7 +168,7 @@ export const getAdvanceReceiveByIdService = async (
     throw new Error("Advance receive not found");
   }
 
-  return advance;
+  return serializeAdvance(advance);
 };
 
 export const updateAdvanceReceiveService = async (
@@ -181,7 +223,27 @@ export const updateAdvanceReceiveService = async (
       );
     }
 
+    const alreadyAdjusted = Number(existing.adjustedAmount || 0);
+    if (amount + 0.01 < alreadyAdjusted) {
+      throw new Error(
+        "Amount cannot be less than already adjusted amount"
+      );
+    }
+
     updateData.amount = amount;
+    updateData.balanceAmount = Math.max(0, amount - alreadyAdjusted);
+    updateData.status =
+      updateData.balanceAmount <= 0.01
+        ? "FULLY_ADJUSTED"
+        : alreadyAdjusted > 0
+          ? "PARTIALLY_ADJUSTED"
+          : "AVAILABLE";
+  }
+
+  if (data.date !== undefined || data.receiveDate !== undefined) {
+    updateData.receiveDate = parseReceiveDate(
+      data.date || data.receiveDate
+    );
   }
 
   if (data.paymentMode !== undefined) {
@@ -205,10 +267,12 @@ export const updateAdvanceReceiveService = async (
     updateData
   );
 
-  return await advanceReceiveRepo.getAdvanceReceiveByIdRepo(
+  const updated = await advanceReceiveRepo.getAdvanceReceiveByIdRepo(
     parsedId,
     parsedStoreId
   );
+
+  return serializeAdvance(updated);
 };
 
 export const deleteAdvanceReceiveService = async (

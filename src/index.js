@@ -20,9 +20,22 @@ import RateRoutes from "./routes/rateRoutes.js";
 import Purchases from "./routes/purchaseRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 const app = express();
+
+const allowOrigins =  ["http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+
+  "http://localhost:5176",
+];
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin || allowOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );

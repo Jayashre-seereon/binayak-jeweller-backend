@@ -6,6 +6,7 @@ import {
   getSaleById,
   getSaleCount,
   downloadSalePdf,
+  getSalesReport
 } from "../controllers/salesController.js";
 
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -23,7 +24,11 @@ router.get(
   authMiddleware,
   getSales
 );
-
+router.get(
+  "/report",
+  authMiddleware,
+  getSalesReport
+);
 router.get(
   "/getById/:id",
   authMiddleware,

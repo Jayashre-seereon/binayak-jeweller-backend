@@ -219,3 +219,37 @@ export const downloadPurchasePdf = async (req, res) => {
     }
   }
 };
+export const getPurchaseReport = async (
+  req,
+  res
+) => {
+  try {
+    const storeId = Number(
+      req.query.storeId
+    );
+
+    const report =
+      await purchaseService.getPurchaseReportService({
+        storeId,
+        period:
+          req.query.period ||
+          "THIS_MONTH",
+        fromDate: req.query.fromDate,
+        toDate: req.query.toDate,
+        purchaseType:
+          req.query.purchaseType || "ALL",
+      });
+
+    return res.json({
+      success: true,
+      ...report,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to load purchase report.",
+    });
+  }
+};

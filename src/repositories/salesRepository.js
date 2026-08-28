@@ -74,3 +74,32 @@ export const getSaleCountRepo = async (storeId) => {
     },
   });
 };
+
+export const getSalesReportRepo = async (
+  storeId,
+  fromDate,
+  toDate
+) => {
+  return prisma.sale.findMany({
+    where: {
+      storeId: Number(storeId),
+
+      saleDate: {
+        gte: fromDate,
+        lte: toDate,
+      },
+    },
+
+    include: {
+      customer: true,
+      items: true,
+      payments: true,
+      oldGolds: true,
+      advanceAdjustments: true,
+    },
+
+    orderBy: {
+      saleDate: "desc",
+    },
+  });
+};

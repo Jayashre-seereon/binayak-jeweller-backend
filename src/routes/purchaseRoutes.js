@@ -10,6 +10,7 @@ import {
   updatePurchase,
   deletePurchase,
   getPurchaseCount,
+  getPurchaseReport,
   downloadPurchasePdf
 } from "../controllers/purchaseController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -25,7 +26,11 @@ const purchaseUpload = upload.fields([
 router.post("/create", authMiddleware, purchaseUpload, createPurchase);
 
 router.get("/get", authMiddleware, getPurchases);
-
+router.get(
+  "/report",
+  authMiddleware,
+  getPurchaseReport
+);
 router.get("/getById/:id", authMiddleware, getPurchaseById);
 
 router.get("/itemsByPurchase/:id", authMiddleware, getPurchaseItemsByPurchaseId);

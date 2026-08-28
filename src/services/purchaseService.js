@@ -8,11 +8,12 @@ import {
   getPurchaseItemsByPurchaseIdRepo,
   updatePurchaseRepo,
   deletePurchaseRepo,
+  getPurchaseReportRepo,
   countPurchases
 } from "../repositories/purchaseRepository.js";
 import { generateInvoiceNo } from "../utils/purchaseCodeGenerator.js";
 import { getOrCreateCustomerService } from "./customerService.js";
-
+import { getReportDateRange } from "../utils/reportDateFilter.js";
 const purchaseError = (message) => new Error(message);
 
 const hasInventoryForPurchase = async (purchaseId) => {
@@ -701,4 +702,92 @@ export const getOldGoldPurchasesByPhoneService = async (
   }
 
   return await getPurchasesByStoreAndPhone(numericStoreId, customerPhone);
+};
+
+export const getPurchaseReportService = async ({
+  storeId,
+  period,
+  fromDate,
+  toDate,
+  purchaseType = "ALL",
+}) => {
+  if (!storeId) {
+    throw new Error("Store is required.");
+  }
+
+  const dateRange = getReportDateRange(
+    period,
+    fromDate,
+    toDate
+  );
+
+  const purchases =
+    await getPurchaseReportRepo(
+      Number(storeId),
+      dateRange.fromDate,
+      dateRange.toDate,
+      purchaseType
+    );
+
+  const summary = purchases.reduce(
+    (acc, purchase) => {
+      acc.totalBills += 1;
+
+      acc.totalItems +=
+        purchase.items?.length || 0;
+
+      // Use the amount field from your schema
+      const amount = Number(
+        purchase.netPayable ||
+        purchase.totalAmount ||
+        purchase.grossAmount ||
+        0
+      );
+
+      acc.totalPurchase += amount;
+
+      if (
+        purchase.purchaseType ===
+        "ORNAMENT"
+      ) {
+        acc.ornamentPurchase += amount;
+      }
+
+      if (
+        purchase.purchaseType === "OLD"
+      ) {
+        acc.oldPurchase += amount;
+      }
+
+      if (
+        purchase.purchaseType ===
+        "BULLION"
+      ) {
+        acc.bullionPurchase += amount;
+      }
+
+      return acc;
+    },
+    {
+      totalBills: 0,
+      totalItems: 0,
+      totalPurchase: 0,
+      ornamentPurchase: 0,
+      oldPurchase: 0,
+      bullionPurchase: 0,
+    }
+  );
+
+  return {
+    filter: {
+      period,
+      purchaseType,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
+    },
+
+    summary,
+
+    purchases,
+  };
 };

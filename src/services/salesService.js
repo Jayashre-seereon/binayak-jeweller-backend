@@ -4,11 +4,13 @@ import {
   getSaleByIdRepo,
   getSalesRepo,
   getSaleCountRepo,
+  getSalesReportRepo
 } from "../repositories/salesRepository.js";
 import { getOrCreateCustomerService } from "./customerService.js";
 import { createCustomerAdjustmentLogRepo } from "../repositories/customerRepository.js";
 import { generateSaleInvoiceNo } from "../utils/salesCodeGenerator.js";
 import { numberToWordsIndian } from "../utils/numberToWords.js";
+import { getReportDateRange } from "../utils/reportDateFilter.js";
 
 const paymentModes = [
   "CASH",
@@ -731,4 +733,89 @@ export const getSaleByIdService = async (id, storeId) => {
 
 export const getSaleCountService = async (storeId) => {
   return getSaleCountRepo(Number(storeId));
+};
+
+export const getSalesReportService = async ({
+  storeId,
+  period,
+  fromDate,
+  toDate,
+}) => {
+  if (!storeId) {
+    throw new Error("Store is required.");
+  }
+
+  const dateRange = getReportDateRange(
+    period,
+    fromDate,
+    toDate
+  );
+
+  const sales = await getSalesReportRepo(
+    Number(storeId),
+    dateRange.fromDate,
+    dateRange.toDate
+  );
+
+  const summary = sales.reduce(
+    (acc, sale) => {
+      acc.totalInvoices += 1;
+
+      acc.totalItems +=
+        sale.items?.length || 0;
+
+      acc.totalSales += Number(
+        sale.netPayable || 0
+      );
+
+      acc.totalGrossAmount += Number(
+        sale.grossAmount || 0
+      );
+
+      acc.totalDiscount +=
+        Number(sale.discount || 0) +
+        Number(sale.offerDiscount || 0);
+
+      acc.totalTax += Number(
+        sale.totalTax || 0
+      );
+
+      acc.totalPaid += Number(
+        sale.paidAmount || 0
+      );
+
+      acc.totalAdvanceAdjusted += Number(
+        sale.advanceAmount || 0
+      );
+
+      acc.totalOldGoldAdjusted += Number(
+        sale.oldGoldAmount || 0
+      );
+
+      return acc;
+    },
+    {
+      totalInvoices: 0,
+      totalItems: 0,
+      totalSales: 0,
+      totalGrossAmount: 0,
+      totalDiscount: 0,
+      totalTax: 0,
+      totalPaid: 0,
+      totalAdvanceAdjusted: 0,
+      totalOldGoldAdjusted: 0,
+    }
+  );
+
+  return {
+    filter: {
+      period,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
+    },
+
+    summary,
+
+    sales,
+  };
 };

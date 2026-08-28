@@ -189,3 +189,39 @@ export const countPurchases = async (storeId) => {
     }
   });
 };
+
+export const getPurchaseReportRepo = async (
+  storeId,
+  fromDate,
+  toDate,
+  purchaseType
+) => {
+  return prisma.purchase.findMany({
+    where: {
+      storeId: Number(storeId),
+
+      ...(purchaseType &&
+      purchaseType !== "ALL"
+        ? {
+            purchaseType,
+          }
+        : {}),
+
+      date: {
+        gte: fromDate,
+        lte: toDate,
+      },
+    },
+
+    include: {
+      party: true,
+      employee: true,
+      items: true,
+      payments: true,
+    },
+
+    orderBy: {
+      date: "desc",
+    },
+  });
+};

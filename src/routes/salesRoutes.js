@@ -6,7 +6,8 @@ import {
   getSaleById,
   getSaleCount,
   downloadSalePdf,
-  getSalesReport
+  getSalesReport,
+  exportSalesReportExcel,
 } from "../controllers/salesController.js";
 
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -28,6 +29,11 @@ router.get(
   "/report",
   authMiddleware,
   getSalesReport
+);
+router.get(
+  "/report/export-excel",
+  authMiddleware,
+  exportSalesReportExcel
 );
 router.get(
   "/getById/:id",

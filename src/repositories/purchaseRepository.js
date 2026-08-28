@@ -198,10 +198,11 @@ export const getPurchaseReportRepo = async (
 ) => {
   return prisma.purchase.findMany({
     where: {
-      storeId: Number(storeId),
+      ...(storeId ? { storeId: Number(storeId) } : {}),
 
       ...(purchaseType &&
-      purchaseType !== "ALL"
+      purchaseType !== "ALL" &&
+      purchaseType !== ""
         ? {
             purchaseType,
           }
@@ -215,8 +216,16 @@ export const getPurchaseReportRepo = async (
 
     include: {
       party: true,
+      customer: true,
       employee: true,
-      items: true,
+      items: {
+        include: {
+          item: true,
+          product: true,
+          metal: true,
+          purityMaster: true,
+        },
+      },
       payments: true,
     },
 

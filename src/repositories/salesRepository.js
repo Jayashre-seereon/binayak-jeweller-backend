@@ -82,7 +82,7 @@ export const getSalesReportRepo = async (
 ) => {
   return prisma.sale.findMany({
     where: {
-      storeId: Number(storeId),
+      ...(storeId ? { storeId: Number(storeId) } : {}),
 
       saleDate: {
         gte: fromDate,
@@ -92,7 +92,19 @@ export const getSalesReportRepo = async (
 
     include: {
       customer: true,
-      items: true,
+      party: true,
+      items: {
+        include: {
+          inventory: {
+            include: {
+              product: true,
+              item: true,
+              metal: true,
+              purityMaster: true,
+            },
+          },
+        },
+      },
       payments: true,
       oldGolds: true,
       advanceAdjustments: true,

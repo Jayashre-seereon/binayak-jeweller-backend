@@ -11,6 +11,7 @@ import {
   deletePurchase,
   getPurchaseCount,
   getPurchaseReport,
+  exportPurchaseReportExcel,
   downloadPurchasePdf
 } from "../controllers/purchaseController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -30,6 +31,11 @@ router.get(
   "/report",
   authMiddleware,
   getPurchaseReport
+);
+router.get(
+  "/report/export-excel",
+  authMiddleware,
+  exportPurchaseReportExcel
 );
 router.get("/getById/:id", authMiddleware, getPurchaseById);
 

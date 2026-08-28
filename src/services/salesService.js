@@ -737,14 +737,10 @@ export const getSaleCountService = async (storeId) => {
 
 export const getSalesReportService = async ({
   storeId,
-  period,
+  period = "THIS_MONTH",
   fromDate,
   toDate,
 }) => {
-  if (!storeId) {
-    throw new Error("Store is required.");
-  }
-
   const dateRange = getReportDateRange(
     period,
     fromDate,
@@ -752,7 +748,7 @@ export const getSalesReportService = async ({
   );
 
   const sales = await getSalesReportRepo(
-    Number(storeId),
+    storeId ? Number(storeId) : undefined,
     dateRange.fromDate,
     dateRange.toDate
   );
@@ -760,37 +756,47 @@ export const getSalesReportService = async ({
   const summary = sales.reduce(
     (acc, sale) => {
       acc.totalInvoices += 1;
+      acc.totalItems += sale.items?.length || 0;
 
-      acc.totalItems +=
-        sale.items?.length || 0;
-
-      acc.totalSales += Number(
-        sale.netPayable || 0
+      const net = Number(
+        sale.netPayable ||
+        sale.payableAmount ||
+        sale.grossTotal ||
+        sale.totalAmount ||
+        0
       );
+      acc.totalSales += net;
+      acc.netSales += net;
+      acc.totalAmount += net;
+      acc.payableAmount += net;
 
-      acc.totalGrossAmount += Number(
-        sale.grossAmount || 0
+      const gross = Number(
+        sale.grossAmount ||
+        sale.subTotal ||
+        sale.subtotal ||
+        net
       );
+      acc.totalGrossAmount += gross;
+      acc.grossTotal += gross;
+      acc.grossAmount += gross;
 
-      acc.totalDiscount +=
-        Number(sale.discount || 0) +
-        Number(sale.offerDiscount || 0);
+      const disc = Number(sale.discount || 0) + Number(sale.offerDiscount || 0);
+      acc.totalDiscount += disc;
 
-      acc.totalTax += Number(
-        sale.totalTax || 0
-      );
+      const tax = Number(sale.totalTax || sale.taxAmount || 0);
+      acc.totalTax += tax;
+      acc.taxAmount += tax;
 
-      acc.totalPaid += Number(
-        sale.paidAmount || 0
-      );
+      const paid = Number(sale.paidAmount || 0);
+      acc.totalPaid += paid;
+      acc.paidAmount += paid;
 
-      acc.totalAdvanceAdjusted += Number(
-        sale.advanceAmount || 0
-      );
+      const due = Number(sale.dueAmount ?? Math.max(0, net - paid));
+      acc.totalDue += due;
+      acc.dueAmount += due;
 
-      acc.totalOldGoldAdjusted += Number(
-        sale.oldGoldAmount || 0
-      );
+      acc.totalAdvanceAdjusted += Number(sale.advanceAmount || 0);
+      acc.totalOldGoldAdjusted += Number(sale.oldGoldAmount || 0);
 
       return acc;
     },
@@ -798,10 +804,19 @@ export const getSalesReportService = async ({
       totalInvoices: 0,
       totalItems: 0,
       totalSales: 0,
+      netSales: 0,
+      totalAmount: 0,
+      payableAmount: 0,
       totalGrossAmount: 0,
+      grossTotal: 0,
+      grossAmount: 0,
       totalDiscount: 0,
       totalTax: 0,
+      taxAmount: 0,
       totalPaid: 0,
+      paidAmount: 0,
+      totalDue: 0,
+      dueAmount: 0,
       totalAdvanceAdjusted: 0,
       totalOldGoldAdjusted: 0,
     }
@@ -813,9 +828,7 @@ export const getSalesReportService = async ({
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
     },
-
     summary,
-
     sales,
   };
 };

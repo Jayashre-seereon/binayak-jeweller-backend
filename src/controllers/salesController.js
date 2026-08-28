@@ -1,5 +1,6 @@
 import * as salesService from "../services/salesService.js";
 import * as salesPdfService from "../services/salesPdfService.js";
+import * as reportExcelService from "../services/reportExcelService.js";
 
 export const createSale = async (
   req,
@@ -202,5 +203,37 @@ export const getSalesReport = async (
         error.message ||
         "Unable to load sales report.",
     });
+  }
+};
+
+export const exportSalesReportExcel = async (
+  req,
+  res
+) => {
+  try {
+    const storeId = Number(
+      req.query.storeId
+    );
+
+    const report =
+      await salesService.getSalesReportService({
+        storeId,
+        period:
+          req.query.period || "THIS_MONTH",
+        fromDate: req.query.fromDate,
+        toDate: req.query.toDate,
+      });
+
+    await reportExcelService.generateSalesReportExcel(report, res);
+  } catch (error) {
+    console.error("Export sales report excel error:", error);
+    if (!res.headersSent) {
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Unable to export sales report to Excel.",
+      });
+    }
   }
 };

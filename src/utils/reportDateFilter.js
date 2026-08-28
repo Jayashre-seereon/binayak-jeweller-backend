@@ -43,7 +43,9 @@ export const getReportDateRange = (
       from.setDate(now.getDate() + diff);
       from = startOfDay(from);
 
-      to = endOfDay(now);
+      to = new Date(from);
+      to.setDate(from.getDate() + 6);
+      to = endOfDay(to);
       break;
     }
 
@@ -53,14 +55,14 @@ export const getReportDateRange = (
 
       const thisWeekStart = new Date(now);
       thisWeekStart.setDate(now.getDate() + diff);
-      thisWeekStart.setHours(0, 0, 0, 0);
 
       from = new Date(thisWeekStart);
       from.setDate(from.getDate() - 7);
+      from = startOfDay(from);
 
       to = new Date(thisWeekStart);
-      to.setMilliseconds(-1);
-
+      to.setDate(to.getDate() - 1);
+      to = endOfDay(to);
       break;
     }
 
@@ -68,26 +70,44 @@ export const getReportDateRange = (
       from = new Date(
         now.getFullYear(),
         now.getMonth(),
-        1
+        1,
+        0,
+        0,
+        0,
+        0
       );
 
-      to = endOfDay(now);
+      to = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
       break;
 
     case "LAST_MONTH":
       from = new Date(
         now.getFullYear(),
         now.getMonth() - 1,
-        1
+        1,
+        0,
+        0,
+        0,
+        0
       );
 
       to = new Date(
         now.getFullYear(),
         now.getMonth(),
-        0
+        0,
+        23,
+        59,
+        59,
+        999
       );
-
-      to = endOfDay(to);
       break;
 
     case "THIS_QUARTER": {
@@ -97,10 +117,22 @@ export const getReportDateRange = (
       from = new Date(
         now.getFullYear(),
         quarterStartMonth,
-        1
+        1,
+        0,
+        0,
+        0,
+        0
       );
 
-      to = endOfDay(now);
+      to = new Date(
+        now.getFullYear(),
+        quarterStartMonth + 3,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
       break;
     }
 
@@ -115,29 +147,43 @@ export const getReportDateRange = (
         from = new Date(
           now.getFullYear() - 1,
           9,
-          1
+          1,
+          0,
+          0,
+          0,
+          0
         );
 
         to = new Date(
           now.getFullYear() - 1,
-          11,
-          31
+          12,
+          0,
+          23,
+          59,
+          59,
+          999
         );
       } else {
         from = new Date(
           now.getFullYear(),
           quarterStartMonth,
-          1
+          1,
+          0,
+          0,
+          0,
+          0
         );
 
         to = new Date(
           now.getFullYear(),
           quarterStartMonth + 3,
-          0
+          0,
+          23,
+          59,
+          59,
+          999
         );
       }
-
-      to = endOfDay(to);
       break;
     }
 
@@ -145,26 +191,49 @@ export const getReportDateRange = (
       from = new Date(
         now.getFullYear(),
         0,
-        1
+        1,
+        0,
+        0,
+        0,
+        0
       );
 
-      to = endOfDay(now);
+      to = new Date(
+        now.getFullYear(),
+        11,
+        31,
+        23,
+        59,
+        59,
+        999
+      );
       break;
 
     case "LAST_YEAR":
       from = new Date(
         now.getFullYear() - 1,
         0,
-        1
+        1,
+        0,
+        0,
+        0,
+        0
       );
 
       to = new Date(
         now.getFullYear() - 1,
         11,
-        31
+        31,
+        23,
+        59,
+        59,
+        999
       );
+      break;
 
-      to = endOfDay(to);
+    case "ALL":
+      from = new Date(2000, 0, 1, 0, 0, 0, 0);
+      to = new Date(2099, 11, 31, 23, 59, 59, 999);
       break;
 
     case "CUSTOM":
@@ -182,11 +251,29 @@ export const getReportDateRange = (
           "From Date cannot be greater than To Date."
         );
       }
-
       break;
 
     default:
-      throw new Error("Invalid report period.");
+      // Default to this month
+      from = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+        0,
+        0,
+        0,
+        0
+      );
+      to = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
+      break;
   }
 
   return {

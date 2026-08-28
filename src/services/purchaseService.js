@@ -706,15 +706,11 @@ export const getOldGoldPurchasesByPhoneService = async (
 
 export const getPurchaseReportService = async ({
   storeId,
-  period,
+  period = "THIS_MONTH",
   fromDate,
   toDate,
   purchaseType = "ALL",
 }) => {
-  if (!storeId) {
-    throw new Error("Store is required.");
-  }
-
   const dateRange = getReportDateRange(
     period,
     fromDate,
@@ -723,7 +719,7 @@ export const getPurchaseReportService = async ({
 
   const purchases =
     await getPurchaseReportRepo(
-      Number(storeId),
+      storeId ? Number(storeId) : undefined,
       dateRange.fromDate,
       dateRange.toDate,
       purchaseType
@@ -732,11 +728,11 @@ export const getPurchaseReportService = async ({
   const summary = purchases.reduce(
     (acc, purchase) => {
       acc.totalBills += 1;
+      acc.totalInvoices += 1;
 
       acc.totalItems +=
         purchase.items?.length || 0;
 
-      // Use the amount field from your schema
       const amount = Number(
         purchase.netPayable ||
         purchase.totalAmount ||
@@ -745,23 +741,33 @@ export const getPurchaseReportService = async ({
       );
 
       acc.totalPurchase += amount;
+      acc.netPurchase += amount;
+      acc.totalAmount += amount;
+
+      const gross = Number(purchase.grossAmount || amount);
+      acc.grossAmount += gross;
+
+      const paid = Number(purchase.paidAmount || 0);
+      acc.paidAmount += paid;
+
+      const due = Number(
+        purchase.balanceAmount ??
+        purchase.dueAmount ??
+        Math.max(0, amount - paid)
+      );
+      acc.balanceAmount += due;
+      acc.dueAmount += due;
 
       if (
-        purchase.purchaseType ===
-        "ORNAMENT"
+        purchase.purchaseType === "ORNAMENT"
       ) {
         acc.ornamentPurchase += amount;
-      }
-
-      if (
+      } else if (
         purchase.purchaseType === "OLD"
       ) {
         acc.oldPurchase += amount;
-      }
-
-      if (
-        purchase.purchaseType ===
-        "BULLION"
+      } else if (
+        purchase.purchaseType === "BULLION"
       ) {
         acc.bullionPurchase += amount;
       }
@@ -770,8 +776,15 @@ export const getPurchaseReportService = async ({
     },
     {
       totalBills: 0,
+      totalInvoices: 0,
       totalItems: 0,
       totalPurchase: 0,
+      netPurchase: 0,
+      totalAmount: 0,
+      grossAmount: 0,
+      paidAmount: 0,
+      balanceAmount: 0,
+      dueAmount: 0,
       ornamentPurchase: 0,
       oldPurchase: 0,
       bullionPurchase: 0,

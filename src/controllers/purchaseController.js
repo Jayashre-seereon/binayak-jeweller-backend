@@ -1,5 +1,6 @@
 import * as purchaseService from "../services/purchaseService.js";
 import * as purchasePdfService from "../services/purchasePdfService.js";
+import * as reportExcelService from "../services/reportExcelService.js";
 export const createPurchase = async (req, res) => {
   try {
     const storeId = Number(req.query.storeId);
@@ -251,5 +252,40 @@ export const getPurchaseReport = async (
         error.message ||
         "Unable to load purchase report.",
     });
+  }
+};
+
+export const exportPurchaseReportExcel = async (
+  req,
+  res
+) => {
+  try {
+    const storeId = Number(
+      req.query.storeId
+    );
+
+    const report =
+      await purchaseService.getPurchaseReportService({
+        storeId,
+        period:
+          req.query.period ||
+          "THIS_MONTH",
+        fromDate: req.query.fromDate,
+        toDate: req.query.toDate,
+        purchaseType:
+          req.query.purchaseType || "ALL",
+      });
+
+    await reportExcelService.generatePurchaseReportExcel(report, res);
+  } catch (error) {
+    console.error("Export purchase report excel error:", error);
+    if (!res.headersSent) {
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Unable to export purchase report to Excel.",
+      });
+    }
   }
 };

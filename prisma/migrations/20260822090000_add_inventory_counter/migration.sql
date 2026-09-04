@@ -1,0 +1,2 @@
+ALTER TABLE "StoreCounter"
+ADD COLUMN IF NOT EXISTS "lastInventoryNumber" INTEGER NOT NULL DEFAULT 0;

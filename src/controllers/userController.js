@@ -5,6 +5,7 @@ import {
   forgotPassword,
   resetPassword,
   logoutUser,
+  refreshAccessToken
 } from "../services/userService.js";// SIGNUP
 export const signup = async (req, res) => {
   try {
@@ -47,9 +48,7 @@ export const reset = async (req, res) => {
 export const logout = async (req, res) => {
   try {
 
-    const userId = req.user.id;
-
-    const result = await logoutUser(userId);
+  const result = await logoutUser(req.user);
 
     res.json(result);
 
@@ -61,3 +60,25 @@ export const logout = async (req, res) => {
 
   }
 };
+
+const handleRefreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    const data = await refreshAccessToken(refreshToken);
+
+    res.json({
+      success: true,
+      accessToken: data.accessToken,
+    });
+
+  } catch (err) {
+    res.status(401).json({
+      message: err.message,
+    });
+  }
+};
+
+export const refreshToken = handleRefreshToken;
+
+export const refreshStoreToken = handleRefreshToken;

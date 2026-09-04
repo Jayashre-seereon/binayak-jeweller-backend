@@ -4,7 +4,7 @@ import cors from "cors";
 import userRoutes from "./routes/userRoutes.js";
 import storeRoutes from "./routes/storeRoutes.js";
 import brandRoutes from "./routes/brandRoutes.js";
-import categoryRoutes from "./routes/categoryRoutes.js";
+import categoryRoutes from "./routes/CategoryRoutes.js";
 import metalRoutes from "./routes/metalRoutes.js";
 import purityRoutes from "./routes/purityRoutes.js";
 import gradeRoutes from "./routes/gradeRoutes.js";

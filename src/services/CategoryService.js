@@ -4,7 +4,7 @@ import {
   getCategoryByIdRepo,
   updateCategoryRepo,
   deleteCategoryRepo,
-} from "../repositories/categoryRepository.js";
+} from "../repositories/CategoryRepository.js";
 
 // CREATE
 export const createCategory = async (data, storeId) => {

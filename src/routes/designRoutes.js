@@ -5,7 +5,7 @@ import {
   getDesignById,
   updateDesign,
   deleteDesign
-} from "../controllers/DesignController.js";
+} from "../controllers/designController.js";
 import { upload } from "../middleware/uploadS3.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 

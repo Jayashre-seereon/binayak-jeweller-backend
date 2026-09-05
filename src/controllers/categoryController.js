@@ -1,4 +1,4 @@
-import * as categoryService from "../services/categoryService.js";
+import * as categoryService from "../services/CategoryService.js";
 
 // CREATE
 export const createCategory = async (req, res) => {

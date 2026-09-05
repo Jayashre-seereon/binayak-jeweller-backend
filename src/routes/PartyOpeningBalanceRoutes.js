@@ -1,5 +1,5 @@
 import express from "express";
-import * as ctrl from "../controllers/partyOpeningBalanceController.js";
+import * as ctrl from "../controllers/PartyOpeningBalanceController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 const router = express.Router();
 

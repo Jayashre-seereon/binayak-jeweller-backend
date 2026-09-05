@@ -26,10 +26,14 @@ import customerRoutes from "./routes/customerRoutes.js";
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://binayak-jewellery-frontend.vercel.app",
+    ],
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 app.use("/api/users", userRoutes);

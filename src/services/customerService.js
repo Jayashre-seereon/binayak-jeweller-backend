@@ -84,6 +84,7 @@ export const lookupCustomerByPhoneService = async (phone, storeId) => {
   // 2. Fetch all Advance Receives for this phone / customer
   const advances = await prisma.advanceReceive.findMany({
     where: {
+      status: { not: "CANCELLED" },
       OR: [
         ...(customer?.id ? [{ customerId: customer.id }] : []),
         { contactNumber: cleanPhone },
@@ -91,6 +92,12 @@ export const lookupCustomerByPhoneService = async (phone, storeId) => {
       storeId: numericStoreId,
     },
     include: {
+      vouchers: {
+        select: {
+          voucherNo: true,
+          date: true,
+        },
+      },
       saleAdjustments: {
         include: {
           sale: {
@@ -178,9 +185,17 @@ export const lookupCustomerByPhoneService = async (phone, storeId) => {
     const balanceAmount = roundMoney(Math.max(0, totalAmount - adjustedAmount));
     const isFullyUsed = balanceAmount <= 0.01 || adv.status === "FULLY_ADJUSTED";
 
+    const voucherNo = adv.vouchers?.[0]?.voucherNo;
+    const displayReceiptNo = voucherNo
+      ? `${voucherNo}`
+      : adv.specification && adv.specification.startsWith("Receipt Voucher")
+      ? adv.specification.replace("Receipt Voucher ", "")
+      : `ADV-${adv.id}`;
+
     return {
       id: adv.id,
-      receiptNo: `ADV-${adv.id}`,
+      receiptNo: displayReceiptNo,
+      voucherNo: voucherNo || null,
       date: adv.createdAt,
       totalAmount,
       adjustedAmount,

@@ -91,6 +91,7 @@ export const createAdvanceReceiveService = async (
 };
 
 const resolveAdvanceStatus = (row) => {
+  if (row.status === "CANCELLED") return "CANCELLED";
   const amount = Number(row.amount || 0);
   const adjusted = Number(row.adjustedAmount || 0);
   const balance = Number(
@@ -104,7 +105,7 @@ const resolveAdvanceStatus = (row) => {
 const serializeAdvance = (row) => {
   const amount = Number(row.amount || 0);
   const adjustedAmount = Number(row.adjustedAmount || 0);
-  const balanceAmount = Math.max(0, amount - adjustedAmount);
+  const balanceAmount = row.status === "CANCELLED" ? 0 : Math.max(0, amount - adjustedAmount);
   const status = resolveAdvanceStatus({ ...row, amount, adjustedAmount, balanceAmount });
   return {
     ...row,

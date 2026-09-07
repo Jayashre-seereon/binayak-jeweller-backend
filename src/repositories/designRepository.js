@@ -1,12 +1,17 @@
 import prisma from "../config/db.js";
 
 export const createDesignRepo = (data) => {
-  return prisma.design.create({ data });
+  return prisma.design.create({
+    data,
+  });
 };
 
 export const getDesignsByStore = (storeId) => {
   return prisma.design.findMany({
     where: { storeId },
+    orderBy: {
+      id: "desc",
+    },
   });
 };
 
@@ -14,7 +19,7 @@ export const getDesignByIdRepo = (id)=>{
   return prisma.design.findUnique({
     where:{
       id
-    }
+    },
   });
 };
 

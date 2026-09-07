@@ -1,21 +1,19 @@
-import PDFDocument from "pdfkit";
 import prisma from "../config/db.js";
 import { numberToWordsIndian } from "../utils/numberToWords.js";
+import { createPdfDoc, drawGoldHeader, drawFooter, PDF_PAGE, PDF_THEME } from "./pdfTemplate.js";
 
-const PAGE_WIDTH = 595.28;
-const PAGE_HEIGHT = 841.89;
-const MARGIN = 24;
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2; // 547.28
+const MARGIN = PDF_PAGE.margin;
+const CONTENT_WIDTH = PDF_PAGE.width - MARGIN * 2;
 
 const COLORS = {
-  black: "#000000",
-  text: "#111827",
-  muted: "#4b5563",
-  border: "#9ca3af",
-  darkBorder: "#374151",
-  lightBorder: "#d1d5db",
-  zebra: "#f9fafb",
-  headerBg: "#f3f4f6",
+  black: PDF_THEME.ink,
+  text: PDF_THEME.ink,
+  muted: PDF_THEME.muted,
+  border: PDF_THEME.border,
+  darkBorder: PDF_THEME.navyDeep,
+  lightBorder: "#e5dcc6",
+  zebra: PDF_THEME.soft,
+  headerBg: PDF_THEME.navy,
 };
 
 const money = (val) =>
@@ -40,6 +38,8 @@ const formatDateTime = (dateVal) => {
 
   return `${day}/${month}/${year} / ${hoursStr}:${minutes}:${ampm}`;
 };
+
+const upperText = (value, fallback = "-") => String(value ?? fallback).toUpperCase();
 
 const drawHLine = (doc, x, y, width, strokeWidth = 0.5, color = COLORS.border) => {
   doc.save().lineWidth(strokeWidth).strokeColor(color).moveTo(x, y).lineTo(x + width, y).stroke().restore();
@@ -91,33 +91,23 @@ export const generateSalePdf = async (id, storeId, res) => {
   if (!sale) throw new Error("Sale invoice not found");
   if (sale.storeId !== Number(storeId)) throw new Error("Unauthorized access to invoice");
 
-  const doc = new PDFDocument({
-    size: "A4",
-    margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
-    bufferPages: true,
-    autoFirstPage: true,
-  });
+  const doc = createPdfDoc();
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="Invoice-${sale.invoiceNo}.pdf"`);
+  res.on("error", (error) => {
+    if (error?.code !== "ERR_STREAM_WRITE_AFTER_END") {
+      console.error("Sale PDF response stream error:", error);
+    }
+  });
   doc.pipe(res);
 
-  let y = MARGIN;
-
-  /*
-  ========================================
-  1. TOP HEADER (TAX INVOICE | CUSTOMER COPY | BRANCH)
-  ========================================
-  */
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(COLORS.black);
-  doc.text("TAX INVOICE", MARGIN, y, { width: CONTENT_WIDTH, align: "center" });
-
-  doc.fontSize(9.5).text("CUSTOMER COPY", MARGIN + 300, y, { width: CONTENT_WIDTH - 300, align: "right" });
-  y += 12;
-
-  const branchName = sale.store?.storeName || "Bhubaneswar Branch";
-  doc.font("Helvetica-Bold").fontSize(9).text(branchName.includes("Branch") ? branchName : `${branchName} Branch`, MARGIN + 300, y, { width: CONTENT_WIDTH - 300, align: "right" });
-  y += 16;
+  let y = drawGoldHeader(doc, {
+    title: "Tax Invoice",
+    branchName: sale.store?.storeName || "Patia Branch, Bhubaneswar",
+    storeName: sale.store?.storeName || "Binayak Jewellers",
+    tagline: sale.store?.tagline || "Patia Branch, Bhubaneswar",
+  });
 
   /*
   ========================================
@@ -141,6 +131,8 @@ export const generateSalePdf = async (id, storeId, res) => {
   const cinNo = sale.cinNo || sale.store?.cinNo || "U36911OR2005PTCC008217";
   const storeGst = sale.storeGst || sale.store?.gstNo || "21AAFCA3795A1Z5";
   const placeOfSupply = sale.placeOfSupply || customerState || "ODISHA";
+  const storeState = String(sale.store?.state || "ODISHA").trim().toUpperCase();
+  const isInterState = String(placeOfSupply || "").trim().toUpperCase() !== "" && String(placeOfSupply || "").trim().toUpperCase() !== storeState;
   const invoiceNo = sale.invoiceNo || "-";
   const invoiceDateTime = formatDateTime(sale.saleDate);
 
@@ -152,7 +144,7 @@ export const generateSalePdf = async (id, storeId, res) => {
     doc.font("Helvetica").fontSize(8).fillColor(COLORS.black).text(String(val || ""), x + lWidth, yPos, { width: 230 - lWidth });
   };
 
-  renderField(col1X, c1Y, "Name", customerName.toUpperCase(), labelWidth1);
+  renderField(col1X, c1Y, "Name", upperText(customerName), labelWidth1);
   c1Y += 12;
   renderField(col1X, c1Y, "Address", customerAddress, labelWidth1);
   c1Y += 12;
@@ -164,7 +156,7 @@ export const generateSalePdf = async (id, storeId, res) => {
   c1Y += 12;
   renderField(col1X, c1Y, "GST No.", customerGst === "-" ? "" : customerGst, labelWidth1);
   c1Y += 12;
-  renderField(col1X, c1Y, "State", customerState.toUpperCase(), labelWidth1);
+  renderField(col1X, c1Y, "State", upperText(customerState), labelWidth1);
   c1Y += 14;
 
   // Col 2 - Store & Invoice Details
@@ -173,7 +165,7 @@ export const generateSalePdf = async (id, storeId, res) => {
   c2Y += 12;
   renderField(col2X, c2Y, "GST No.", storeGst, labelWidth2);
   c2Y += 12;
-  renderField(col2X, c2Y, "Place of Supply", placeOfSupply.toUpperCase(), labelWidth2);
+  renderField(col2X, c2Y, "Place of Supply", upperText(placeOfSupply), labelWidth2);
   c2Y += 12;
   renderField(col2X, c2Y, "Invoice No.", invoiceNo, labelWidth2);
   c2Y += 12;
@@ -237,7 +229,7 @@ export const generateSalePdf = async (id, storeId, res) => {
     const rowHeight = 28;
     const inv = item.inventory;
 
-    const particularsName = (item.particulars || inv?.item?.name || inv?.product?.name || "EARRING").toUpperCase();
+    const particularsName = upperText(item.particulars || inv?.item?.name || inv?.product?.name || "EARRING", "EARRING");
     const itemCodeStr = item.itemCode || inv?.barcodeNo || inv?.tagNo || inv?.inventoryCode || "";
     const hsnStr = item.hsnCode || "711319";
     const purityStr = item.purityName || (inv?.purityMaster?.name || (item.purity ? `${item.purity}K` : "22K"));
@@ -367,7 +359,7 @@ export const generateSalePdf = async (id, storeId, res) => {
   // ----------------------------------------
   let ly = splitStartY;
   const primaryPayment = sale.payments?.[0];
-  const paymentModeName = primaryPayment?.paymentChannel || (primaryPayment?.paymentMode ? `By ${primaryPayment.paymentMode}` : "By PhonePe");
+  const paymentModeName = String(primaryPayment?.paymentChannel || (primaryPayment?.paymentMode ? `By ${primaryPayment.paymentMode}` : "By PhonePe"));
   const paidAmountVal = sale.paidAmount || primaryPayment?.amount || sale.netPayable || 0;
 
   doc.font("Helvetica-Bold").fontSize(7.8).fillColor(COLORS.black);
@@ -537,5 +529,10 @@ export const generateSalePdf = async (id, storeId, res) => {
   doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
   doc.text("Authorised Signatory", rightColX + 8, ry, { width: rightColWidth - 16, align: "right" });
 
+  drawFooter(
+    doc,
+    sale.store?.tagline || "Thank you for visiting Binayak Jewellers, Patia - terms & conditions overleaf",
+    PDF_PAGE.height - PDF_PAGE.margin - 18
+  );
   doc.end();
 };

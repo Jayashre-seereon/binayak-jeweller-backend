@@ -9,14 +9,12 @@ import {
 
 // CREATE
 export const createDesign = async (data, storeId) => {
-
   return await createDesignRepo({
     name: data.name,
     description: data.description,
     image: data.image,
     storeId: storeId
   });
-
 };
 
 
@@ -64,13 +62,16 @@ export const updateDesign = async (id, data, storeId) => {
     throw new Error("Unauthorized");
   }
 
+  const updateData = {
+    name: data.name,
+    description: data.description,
+  };
 
-  return await updateDesignRepo(id,{
-    name:data.name,
-    description:data.description,
-    image:data.image
-  });
+  if (data.image !== undefined) {
+    updateData.image = data.image;
+  }
 
+  return await updateDesignRepo(id, updateData);
 };
 
 

@@ -102,19 +102,55 @@ export const getCustomerPendingSalesService = async (customerId, phone, storeId)
   return sales;
 };
 
-export const getSupplierPendingPurchasesService = async (partyId, storeId) => {
+export const getSupplierPendingPurchasesService = async (param, storeId) => {
   const numericStoreId = Number(storeId);
   if (!numericStoreId) throw new Error("Valid storeId is required");
 
+  const partyId = typeof param === "object" ? param.partyId : param;
+  const phone = typeof param === "object" ? param.phone : null;
+
+  const cleanPhone = phone ? String(phone).trim().replace(/\D/g, "") : "";
   const numericPartyId = partyId ? Number(partyId) : null;
-  if (!numericPartyId) return [];
+
+  if (!numericPartyId && !cleanPhone) {
+    return { supplier: null, totalOutstandingDue: 0, data: [] };
+  }
+
+  let supplier = null;
+
+  if (numericPartyId) {
+    supplier = await prisma.partymaster.findFirst({
+      where: { id: numericPartyId, storeId: numericStoreId },
+      include: { partytype: true },
+    });
+  } else if (cleanPhone) {
+    supplier = await prisma.partymaster.findFirst({
+      where: {
+        storeId: numericStoreId,
+        phone: { contains: cleanPhone },
+      },
+      include: { partytype: true },
+    });
+  }
+
+  const whereClause = {
+    storeId: numericStoreId,
+    dueAmount: { gt: 0.01 },
+  };
+
+  if (supplier) {
+    whereClause.OR = [
+      { partyId: supplier.id },
+      ...(supplier.phone ? [{ customerPhone: { contains: supplier.phone.replace(/\D/g, "") } }] : []),
+    ];
+  } else if (cleanPhone) {
+    whereClause.customerPhone = { contains: cleanPhone };
+  } else if (numericPartyId) {
+    whereClause.partyId = numericPartyId;
+  }
 
   const purchases = await prisma.purchase.findMany({
-    where: {
-      storeId: numericStoreId,
-      partyId: numericPartyId,
-      dueAmount: { gt: 0.01 },
-    },
+    where: whereClause,
     select: {
       id: true,
       invoiceNo: true,
@@ -127,11 +163,96 @@ export const getSupplierPendingPurchasesService = async (partyId, storeId) => {
       dueAmount: true,
       totalAmount: true,
       purchaseType: true,
+      partyId: true,
+      party: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          gst: true,
+          address: true,
+        },
+      },
     },
     orderBy: { date: "desc" },
   });
 
-  return purchases;
+  const totalOutstandingDue = roundMoney(
+    purchases.reduce((sum, p) => sum + Number(p.dueAmount || 0), 0)
+  );
+
+  if (!supplier && purchases.length > 0) {
+    const firstP = purchases[0];
+    supplier = firstP.party || {
+      id: firstP.partyId || null,
+      name: firstP.customerName || "Supplier",
+      phone: firstP.customerPhone || cleanPhone,
+    };
+  }
+
+  return {
+    supplier,
+    totalOutstandingDue,
+    data: purchases,
+  };
+};
+
+export const getPendingSuppliersService = async (storeId) => {
+  const numericStoreId = Number(storeId);
+  if (!numericStoreId) throw new Error("Valid storeId is required");
+
+  const pendingPurchases = await prisma.purchase.findMany({
+    where: {
+      storeId: numericStoreId,
+      dueAmount: { gt: 0.01 },
+    },
+    select: {
+      id: true,
+      partyId: true,
+      customerName: true,
+      customerPhone: true,
+      dueAmount: true,
+      party: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          gst: true,
+          address: true,
+          partytype: {
+            select: { name: true },
+          },
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  const supplierMap = new Map();
+
+  for (const pur of pendingPurchases) {
+    const phone = (pur.party?.phone || pur.customerPhone || "").trim();
+    const key = phone || (pur.partyId ? `id_${pur.partyId}` : `pur_${pur.id}`);
+
+    if (!supplierMap.has(key)) {
+      supplierMap.set(key, {
+        partyId: pur.party?.id || pur.partyId || null,
+        name: pur.party?.name || pur.customerName || "Supplier",
+        phone: phone || "-",
+        gst: pur.party?.gst || "",
+        address: pur.party?.address || "",
+        partyTypeName: pur.party?.partytype?.name || "Supplier",
+        totalDueAmount: 0,
+        pendingInvoicesCount: 0,
+      });
+    }
+
+    const item = supplierMap.get(key);
+    item.totalDueAmount = roundMoney(item.totalDueAmount + Number(pur.dueAmount || 0));
+    item.pendingInvoicesCount += 1;
+  }
+
+  return Array.from(supplierMap.values()).sort((a, b) => b.totalDueAmount - a.totalDueAmount);
 };
 
 export const createReceiptVoucherService = async (data, storeId, user = null) => {
@@ -434,51 +555,118 @@ export const createPaymentVoucherService = async (data, storeId, user = null) =>
 
     if (referenceType === "PURCHASE") {
       const purchaseId = Number(data.purchaseId || data.referenceId);
-      if (!purchaseId) {
-        throw new Error("Purchase invoice reference is required for supplier payment.");
-      }
+      let primaryPurchase = null;
 
-      const purchase = await tx.purchase.findFirst({
-        where: { id: purchaseId, storeId: numericStoreId },
-      });
+      if (purchaseId) {
+        primaryPurchase = await tx.purchase.findFirst({
+          where: { id: purchaseId, storeId: numericStoreId },
+        });
 
-      if (!purchase) {
-        throw new Error(`Purchase record #${purchaseId} not found in this store.`);
-      }
+        if (!primaryPurchase) {
+          throw new Error(`Purchase record #${purchaseId} not found in this store.`);
+        }
 
-      const pendingDue = roundMoney(purchase.dueAmount);
-      if (amount > pendingDue + 0.01) {
-        throw new Error(
-          `Payment amount (₹${amount.toFixed(2)}) cannot exceed the pending outstanding balance (₹${pendingDue.toFixed(2)}) for purchase ${purchase.invoiceNo || `#${purchase.id}`}.`
+        const pendingDue = roundMoney(primaryPurchase.dueAmount);
+        if (amount > pendingDue + 0.01) {
+          throw new Error(
+            `Payment amount (₹${amount.toFixed(2)}) cannot exceed the pending outstanding balance (₹${pendingDue.toFixed(2)}) for purchase ${primaryPurchase.invoiceNo || `#${primaryPurchase.id}`}.`
+          );
+        }
+
+        const newPaid = roundMoney(primaryPurchase.paidAmount + amount);
+        const newDue = roundMoney(Math.max(0, primaryPurchase.dueAmount - amount));
+
+        await tx.purchase.update({
+          where: { id: primaryPurchase.id },
+          data: {
+            paidAmount: newPaid,
+            dueAmount: newDue,
+          },
+        });
+
+        await tx.purchasePayment.create({
+          data: {
+            purchaseId: primaryPurchase.id,
+            storeId: numericStoreId,
+            paymentMode,
+            amount,
+            referenceNo: voucherNo,
+            transactionId: data.transactionRef || null,
+            description: data.narration || `Payment Voucher ${voucherNo}`,
+            paymentDate: date,
+            narration: data.narration || null,
+          },
+        });
+      } else {
+        // Overall supplier due settlement (FIFO across pending purchases)
+        const partyPhone = data.partyPhone ? String(data.partyPhone).trim() : "";
+        const partyId = data.partyId ? Number(data.partyId) : null;
+
+        const orConditions = [];
+        if (partyId) orConditions.push({ partyId });
+        if (partyPhone) orConditions.push({ customerPhone: partyPhone });
+
+        if (orConditions.length === 0) {
+          throw new Error("Supplier phone or Party is required for supplier purchase payment.");
+        }
+
+        const pendingPurchases = await tx.purchase.findMany({
+          where: {
+            storeId: numericStoreId,
+            dueAmount: { gt: 0.01 },
+            OR: orConditions,
+          },
+          orderBy: { date: "asc" },
+        });
+
+        if (!pendingPurchases.length) {
+          throw new Error("No pending purchases found with outstanding dues for this supplier.");
+        }
+
+        const totalDue = roundMoney(
+          pendingPurchases.reduce((sum, p) => sum + (Number(p.dueAmount) || 0), 0)
         );
+
+        if (amount > totalDue + 0.01) {
+          throw new Error(
+            `Payment amount (₹${amount.toFixed(2)}) cannot exceed supplier total outstanding due of ₹${totalDue.toFixed(2)}.`
+          );
+        }
+
+        let remaining = amount;
+        for (const pur of pendingPurchases) {
+          if (remaining <= 0.001) break;
+          const purDue = roundMoney(Number(pur.dueAmount) || 0);
+          const payAmt = roundMoney(Math.min(remaining, purDue));
+
+          await tx.purchase.update({
+            where: { id: pur.id },
+            data: {
+              paidAmount: roundMoney((Number(pur.paidAmount) || 0) + payAmt),
+              dueAmount: roundMoney(Math.max(0, purDue - payAmt)),
+            },
+          });
+
+          await tx.purchasePayment.create({
+            data: {
+              purchaseId: pur.id,
+              storeId: numericStoreId,
+              paymentMode,
+              amount: payAmt,
+              referenceNo: voucherNo,
+              transactionId: data.transactionRef || null,
+              description: data.narration || `Payment Voucher ${voucherNo}`,
+              paymentDate: date,
+              narration: data.narration || null,
+            },
+          });
+
+          remaining = roundMoney(remaining - payAmt);
+          if (!primaryPurchase) primaryPurchase = pur;
+        }
       }
 
-      const newPaid = roundMoney(purchase.paidAmount + amount);
-      const newDue = roundMoney(Math.max(0, purchase.dueAmount - amount));
-
-      await tx.purchase.update({
-        where: { id: purchase.id },
-        data: {
-          paidAmount: newPaid,
-          dueAmount: newDue,
-        },
-      });
-
-      await tx.purchasePayment.create({
-        data: {
-          purchaseId: purchase.id,
-          storeId: numericStoreId,
-          paymentMode,
-          amount,
-          referenceNo: voucherNo,
-          transactionId: data.transactionRef || null,
-          description: data.narration || `Payment Voucher ${voucherNo}`,
-          paymentDate: date,
-          narration: data.narration || null,
-        },
-      });
-
-      const partyName = data.payTo || purchase.customerName || "Supplier";
+      const partyName = data.payTo || primaryPurchase?.customerName || "Supplier";
       const supplierAccountName = `Supplier: ${partyName}`;
 
       voucherRecord = await tx.voucher.create({
@@ -490,18 +678,18 @@ export const createPaymentVoucherService = async (data, storeId, user = null) =>
           amount,
           paymentMode,
           referenceType: "PURCHASE",
-          referenceId: purchase.id,
-          referenceDocNo: purchase.invoiceNo || purchase.referenceNo,
+          referenceId: primaryPurchase?.id || null,
+          referenceDocNo: primaryPurchase?.invoiceNo || primaryPurchase?.referenceNo || "MULTIPLE",
           partyType: "SUPPLIER",
-          partyId: purchase.partyId,
+          partyId: primaryPurchase?.partyId || (data.partyId ? Number(data.partyId) : null),
           partyName,
-          partyPhone: purchase.customerPhone || data.partyPhone || null,
+          partyPhone: primaryPurchase?.customerPhone || data.partyPhone || null,
           bankName: data.bankName || null,
           transactionRef: data.transactionRef || null,
-          narration: data.narration || `Paid ₹${amount} against Purchase ${purchase.invoiceNo || `#${purchase.id}`}`,
+          narration: data.narration || `Paid ₹${amount} against Supplier Purchase Dues`,
           status: "COMPLETED",
           createdBy: user?.name || "System",
-          purchaseId: purchase.id,
+          purchaseId: primaryPurchase?.id || null,
           entries: {
             create: [
               {
@@ -510,7 +698,9 @@ export const createPaymentVoucherService = async (data, storeId, user = null) =>
                 entryType: "DEBIT",
                 debit: amount,
                 credit: 0,
-                narration: `Paid for purchase invoice ${purchase.invoiceNo || `#${purchase.id}`}`,
+                narration: primaryPurchase
+                  ? `Paid for purchase invoice ${primaryPurchase.invoiceNo || `#${primaryPurchase.id}`}`
+                  : (data.narration || `Paid against Supplier Purchase Dues`),
                 date,
               },
               {
@@ -739,29 +929,53 @@ export const cancelVoucherService = async (voucherId, storeId, reason, user = nu
         }
       }
     } else if (voucher.voucherType === "PAYMENT") {
-      if (voucher.referenceType === "PURCHASE" && voucher.referenceId) {
-        const purchase = await tx.purchase.findUnique({
-          where: { id: voucher.referenceId },
+      if (voucher.referenceType === "PURCHASE") {
+        const payments = await tx.purchasePayment.findMany({
+          where: { referenceNo: voucher.voucherNo },
         });
 
-        if (purchase) {
-          const revertedPaid = roundMoney(Math.max(0, purchase.paidAmount - voucher.amount));
-          const revertedDue = roundMoney(purchase.dueAmount + voucher.amount);
-
-          await tx.purchase.update({
-            where: { id: purchase.id },
-            data: {
-              paidAmount: revertedPaid,
-              dueAmount: revertedDue,
-            },
-          });
-
+        if (payments.length > 0) {
+          for (const pay of payments) {
+            const pur = await tx.purchase.findUnique({ where: { id: pay.purchaseId } });
+            if (pur) {
+              const revertedPaid = roundMoney(Math.max(0, pur.paidAmount - pay.amount));
+              const revertedDue = roundMoney(pur.dueAmount + pay.amount);
+              await tx.purchase.update({
+                where: { id: pur.id },
+                data: {
+                  paidAmount: revertedPaid,
+                  dueAmount: revertedDue,
+                },
+              });
+            }
+          }
           await tx.purchasePayment.deleteMany({
-            where: {
-              purchaseId: purchase.id,
-              referenceNo: voucher.voucherNo,
-            },
+            where: { referenceNo: voucher.voucherNo },
           });
+        } else if (voucher.referenceId) {
+          const purchase = await tx.purchase.findUnique({
+            where: { id: voucher.referenceId },
+          });
+
+          if (purchase) {
+            const revertedPaid = roundMoney(Math.max(0, purchase.paidAmount - voucher.amount));
+            const revertedDue = roundMoney(purchase.dueAmount + voucher.amount);
+
+            await tx.purchase.update({
+              where: { id: purchase.id },
+              data: {
+                paidAmount: revertedPaid,
+                dueAmount: revertedDue,
+              },
+            });
+
+            await tx.purchasePayment.deleteMany({
+              where: {
+                purchaseId: purchase.id,
+                referenceNo: voucher.voucherNo,
+              },
+            });
+          }
         }
       }
     }

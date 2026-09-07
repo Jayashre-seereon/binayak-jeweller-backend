@@ -1,5 +1,33 @@
 import prisma from "../config/db.js";
 
+const purchaseItemInclude = {
+  item: {
+    include: {
+      product: {
+        include: {
+          category: true,
+          metal: true,
+          purity: true,
+          grade: true,
+        },
+      },
+      design: true,
+    },
+  },
+  product: {
+    include: {
+      category: true,
+      metal: true,
+      purity: true,
+      grade: true,
+    },
+  },
+  metal: true,
+  purityMaster: true,
+  grade: true,
+  stone: true,
+};
+
 export const createPurchaseRepo = async (data) => {
   return prisma.purchase.create({
     data,
@@ -9,23 +37,16 @@ export const createPurchaseRepo = async (data) => {
       store: true,
       payments: true,
       items: {
-        include: {
-          item: true,
-          product: true,
-          metal: true,
-          purityMaster: true,
-          grade: true,
-          stone: true
-        }
-      }
-    }
+        include: purchaseItemInclude,
+      },
+    },
   });
 };
 
 export const getPurchasesByStore = async (storeId) => {
   return prisma.purchase.findMany({
     where: {
-      storeId: Number(storeId)
+      storeId: Number(storeId),
     },
     include: {
       party: true,
@@ -33,19 +54,12 @@ export const getPurchasesByStore = async (storeId) => {
       store: true,
       payments: true,
       items: {
-        include: {
-          item: true,
-          product: true,
-          metal: true,
-          purityMaster: true,
-          grade: true,
-          stone: true
-        }
-      }
+        include: purchaseItemInclude,
+      },
     },
     orderBy: {
-      createdAt: "desc"
-    }
+      createdAt: "desc",
+    },
   });
 };
 
@@ -80,26 +94,19 @@ export const getPurchasesByStoreAndPhone = async (
       store: true,
       payments: true,
       items: {
-        include: {
-          item: true,
-          product: true,
-          metal: true,
-          purityMaster: true,
-          grade: true,
-          stone: true
-        }
-      }
+        include: purchaseItemInclude,
+      },
     },
     orderBy: {
-      createdAt: "desc"
-    }
+      createdAt: "desc",
+    },
   });
 };
 
 export const getPurchaseByIdRepo = async (id) => {
   return prisma.purchase.findUnique({
     where: {
-      id: Number(id)
+      id: Number(id),
     },
     include: {
       party: true,
@@ -107,16 +114,9 @@ export const getPurchaseByIdRepo = async (id) => {
       store: true,
       payments: true,
       items: {
-        include: {
-          item: true,
-          product: true,
-          metal: true,
-          purityMaster: true,
-          grade: true,
-          stone: true
-        }
-      }
-    }
+        include: purchaseItemInclude,
+      },
+    },
   });
 };
 
@@ -125,34 +125,29 @@ export const getPurchaseItemsByPurchaseIdRepo = async (purchaseId, storeId) => {
     where: {
       purchaseId: Number(purchaseId),
       purchase: {
-        storeId: Number(storeId)
-      }
+        storeId: Number(storeId),
+      },
     },
     include: {
-      item: true,
-      product: true,
-      metal: true,
-      purityMaster: true,
-      grade: true,
-      stone: true,
+      ...purchaseItemInclude,
       purchase: {
         select: {
           id: true,
           invoiceNo: true,
-          purchaseType: true
-        }
-      }
+          purchaseType: true,
+        },
+      },
     },
     orderBy: {
-      id: "asc"
-    }
+      id: "asc",
+    },
   });
 };
 
 export const updatePurchaseRepo = async (id, data) => {
   return prisma.purchase.update({
     where: {
-      id: Number(id)
+      id: Number(id),
     },
     data,
     include: {
@@ -161,16 +156,9 @@ export const updatePurchaseRepo = async (id, data) => {
       store: true,
       payments: true,
       items: {
-        include: {
-          item: true,
-          product: true,
-          metal: true,
-          purityMaster: true,
-          grade: true,
-          stone: true
-        }
-      }
-    }
+        include: purchaseItemInclude,
+      },
+    },
   });
 };
 

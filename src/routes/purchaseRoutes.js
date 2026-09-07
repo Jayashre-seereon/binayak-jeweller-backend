@@ -12,6 +12,7 @@ import {
   getPurchaseCount,
   getPurchaseReport,
   exportPurchaseReportExcel,
+  exportPurchaseReportPdf,
   downloadPurchasePdf
 } from "../controllers/purchaseController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -37,6 +38,7 @@ router.get(
   authMiddleware,
   exportPurchaseReportExcel
 );
+router.get("/report/export-pdf", authMiddleware, exportPurchaseReportPdf);
 router.get("/getById/:id", authMiddleware, getPurchaseById);
 
 router.get("/itemsByPurchase/:id", authMiddleware, getPurchaseItemsByPurchaseId);

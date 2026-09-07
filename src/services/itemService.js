@@ -33,12 +33,17 @@ export const createItem = async (data, storeId) => {
   }
 
   // Create Item
+  const purityId = data.purityId && Number(data.purityId) > 0
+    ? Number(data.purityId)
+    : (product.purityId || null);
+
   return await createItemRepo({
     name: data.name,
     description: data.description,
     image: data.image,
     productId: Number(data.productId),
     designId: Number(data.designId),
+    purityId,
     storeId: Number(storeId),
   });
 };
@@ -110,6 +115,14 @@ export const updateItem = async (id, data, storeId) => {
     }
   }
 
+  let purityToSave = undefined;
+  if (data.purityId !== undefined) {
+    purityToSave = data.purityId && Number(data.purityId) > 0 ? Number(data.purityId) : null;
+  } else if (data.productId) {
+    const p = await prisma.product.findUnique({ where: { id: Number(data.productId) } });
+    if (p) purityToSave = p.purityId || null;
+  }
+
   return await updateItemRepo(Number(id), {
     ...(data.name && { name: data.name }),
     ...(data.description !== undefined && {
@@ -123,6 +136,9 @@ export const updateItem = async (id, data, storeId) => {
     }),
     ...(data.designId && {
       designId: Number(data.designId),
+    }),
+    ...(purityToSave !== undefined && {
+      purityId: purityToSave,
     }),
   });
 };

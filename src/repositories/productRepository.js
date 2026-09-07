@@ -1,7 +1,15 @@
 import prisma from "../config/db.js";
 
 export const createProductRepo = (data) => {
-  return prisma.product.create({ data });
+  return prisma.product.create({
+    data,
+    include: {
+      category: true,
+      metal: true,
+      purity: true,
+      grade: true,
+    },
+  });
 };
 
 export const getProductsByStore = (storeId) => {
@@ -11,6 +19,7 @@ export const getProductsByStore = (storeId) => {
       category: true,
       metal: true,
       purity: true,
+      grade: true,
     },
     orderBy: {
       id: "desc",
@@ -25,6 +34,7 @@ export const getProductsByMetalIdRepo = (metalId, storeId) => {
       category: true,
       metal: true,
       purity: true,
+      grade: true,
     },
     orderBy: {
       id: "asc",
@@ -39,6 +49,7 @@ export const getProductByIdRepo = (id) => {
       category: true,
       metal: true,
       purity: true,
+      grade: true,
     }
   });
 };
@@ -51,6 +62,7 @@ export const updateProductRepo = (id, data) => {
       category: true,
       metal: true,
       purity: true,
+      grade: true,
     },
   });
 };

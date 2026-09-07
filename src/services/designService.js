@@ -9,12 +9,10 @@ import {
 
 // CREATE
 export const createDesign = async (data, storeId) => {
-  const categoryId = data.categoryId && Number(data.categoryId) > 0 ? Number(data.categoryId) : null;
   return await createDesignRepo({
     name: data.name,
     description: data.description,
     image: data.image,
-    categoryId,
     storeId: storeId
   });
 };
@@ -71,10 +69,6 @@ export const updateDesign = async (id, data, storeId) => {
 
   if (data.image !== undefined) {
     updateData.image = data.image;
-  }
-
-  if (data.categoryId !== undefined) {
-    updateData.categoryId = data.categoryId && Number(data.categoryId) > 0 ? Number(data.categoryId) : null;
   }
 
   return await updateDesignRepo(id, updateData);

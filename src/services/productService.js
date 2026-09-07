@@ -31,13 +31,25 @@ export const createProduct = async (data, storeId) => {
   }
 
 
+  const purityId = data.purityId && Number(data.purityId) > 0 ? Number(data.purityId) : null;
+  let gradeId = data.gradeId && Number(data.gradeId) > 0 ? Number(data.gradeId) : null;
+
+  if (purityId && !gradeId) {
+    const defaultGrade = await prisma.grade.findFirst({
+      where: { purityId },
+      orderBy: { id: "asc" },
+    });
+    if (defaultGrade) gradeId = defaultGrade.id;
+  }
+
   const product = await prisma.product.create({
     data: {
       name: data.name,
       description: data.description,
       categoryId: Number(data.categoryId),
       metalId: Number(data.metalId),
-      purityId: data.purityId ? Number(data.purityId) : null,
+      purityId,
+      gradeId,
       storeId: Number(storeId),
       image: data.image
     },
@@ -45,6 +57,7 @@ export const createProduct = async (data, storeId) => {
       category: true,
       metal: true,
       purity: true,
+      grade: true,
     }
   });
 
@@ -101,6 +114,21 @@ export const updateProduct = async (id, data, storeId) => {
     updateData.purityId = updateData.purityId && Number(updateData.purityId) > 0
       ? Number(updateData.purityId)
       : null;
+    if (!updateData.purityId) {
+      updateData.gradeId = null;
+    }
+  }
+
+  if (updateData.gradeId !== undefined) {
+    updateData.gradeId = updateData.gradeId && Number(updateData.gradeId) > 0
+      ? Number(updateData.gradeId)
+      : null;
+  } else if (updateData.purityId) {
+    const defaultGrade = await prisma.grade.findFirst({
+      where: { purityId: updateData.purityId },
+      orderBy: { id: "asc" },
+    });
+    if (defaultGrade) updateData.gradeId = defaultGrade.id;
   }
 
   return await updateProductRepo(id, updateData);

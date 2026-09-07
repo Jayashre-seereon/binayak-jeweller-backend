@@ -698,7 +698,9 @@ export const createPaymentVoucherService = async (data, storeId, user = null) =>
                 entryType: "DEBIT",
                 debit: amount,
                 credit: 0,
-                narration: `Paid for purchase invoice ${purchase.invoiceNo || `#${purchase.id}`}`,
+                narration: primaryPurchase
+                  ? `Paid for purchase invoice ${primaryPurchase.invoiceNo || `#${primaryPurchase.id}`}`
+                  : (data.narration || `Paid against Supplier Purchase Dues`),
                 date,
               },
               {

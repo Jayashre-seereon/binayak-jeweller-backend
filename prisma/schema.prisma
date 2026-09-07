@@ -89,6 +89,7 @@ model Category {
   storeId   Int
   store     Store     @relation(fields: [storeId], references: [id])
   products  Product[]
+  designs   Design[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -126,6 +127,8 @@ model Purity {
   rateMaster    RateMaster[]
   purchaseItems PurchaseItem[]
   inventory     Inventory[]
+  products      Product[]
+  items         Item[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -149,15 +152,17 @@ model Grade {
 }
 
 model Design {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   name        String
   description String?
   image       String?
   storeId     Int
-  store       Store    @relation(fields: [storeId], references: [id])
+  store       Store     @relation(fields: [storeId], references: [id])
+  categoryId  Int?
+  category    Category? @relation(fields: [categoryId], references: [id])
   items       Item[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Product {
@@ -171,6 +176,9 @@ model Product {
 
   metalId Int
   metal   Metal @relation(fields: [metalId], references: [id])
+
+  purityId Int?
+  purity   Purity? @relation(fields: [purityId], references: [id])
 
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])
@@ -194,6 +202,9 @@ model Item {
 
   designId Int
   design   Design @relation(fields: [designId], references: [id])
+
+  purityId Int?
+  purity   Purity? @relation(fields: [purityId], references: [id])
 
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])
@@ -255,13 +266,13 @@ model Employee {
 }
 
 model StoreCounter {
-  id                 Int @id @default(autoincrement())
-  storeId            Int @unique
-  lastEmpNumber      Int @default(0)
-  lastInvoiceNumber  Int @default(0)
-  lastTransferNumber Int @default(0)
-  lastSaleNumber     Int @default(0)
-  lastInventoryNumber Int @default(0)
+  id                       Int @id @default(autoincrement())
+  storeId                  Int @unique
+  lastEmpNumber            Int @default(0)
+  lastInvoiceNumber        Int @default(0)
+  lastTransferNumber       Int @default(0)
+  lastSaleNumber           Int @default(0)
+  lastInventoryNumber      Int @default(0)
   lastReceiptVoucherNumber Int @default(0)
   lastPaymentVoucherNumber Int @default(0)
   lastJournalVoucherNumber Int @default(0)
@@ -391,9 +402,9 @@ model Purchase {
   paidAmount  Float   @default(0)
   dueAmount   Float   @default(0)
 
-  adjustedAmount   Float   @default(0)
-  balanceAmount    Float   @default(0)
-  adjustmentStatus String  @default("AVAILABLE")
+  adjustedAmount   Float  @default(0)
+  balanceAmount    Float  @default(0)
+  adjustmentStatus String @default("AVAILABLE")
 
   narration String?
 
@@ -406,8 +417,8 @@ model Purchase {
   inventory    Inventory[]
   saleOldGolds SaleOldGold[]
   vouchers     Voucher[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 }
 
 model PurchaseItem {
@@ -606,20 +617,20 @@ model InventoryTransferItem {
 }
 
 model Customer {
-  id              Int       @id @default(autoincrement())
-  customerCode    String?   @unique
-  name            String
-  phone           String    @unique
-  address         String?
-  city            String?
-  state           String?   @default("ODISHA")
-  pan             String?
-  gst             String?
-  idType          String?
-  idNumber        String?
+  id           Int     @id @default(autoincrement())
+  customerCode String? @unique
+  name         String
+  phone        String  @unique
+  address      String?
+  city         String?
+  state        String? @default("ODISHA")
+  pan          String?
+  gst          String?
+  idType       String?
+  idNumber     String?
 
-  storeId         Int
-  store           Store     @relation(fields: [storeId], references: [id])
+  storeId Int
+  store   Store @relation(fields: [storeId], references: [id])
 
   sales           Sale[]
   purchases       Purchase[]
@@ -627,8 +638,8 @@ model Customer {
   adjustmentLogs  CustomerAdjustmentLog[]
   vouchers        Voucher[]
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([storeId])
   @@index([phone])
@@ -640,29 +651,29 @@ enum AdjustmentType {
 }
 
 model CustomerAdjustmentLog {
-  id                Int            @id @default(autoincrement())
-  customerId        Int
-  saleId            Int
-  storeId           Int
-  adjustmentType    AdjustmentType
-  referenceId       Int
-  referenceDocNo    String?
-  saleInvoiceNo     String
-  
-  totalOriginal     Float          @default(0)
-  previousBalance   Float          @default(0)
-  adjustedAmount    Float          @default(0)
-  remainingBalance  Float          @default(0)
-  
-  cashierName       String?
-  adjustmentDate    DateTime       @default(now())
-  notes             String?
+  id             Int            @id @default(autoincrement())
+  customerId     Int
+  saleId         Int
+  storeId        Int
+  adjustmentType AdjustmentType
+  referenceId    Int
+  referenceDocNo String?
+  saleInvoiceNo  String
 
-  customer          Customer       @relation(fields: [customerId], references: [id])
-  sale              Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  store             Store          @relation(fields: [storeId], references: [id])
+  totalOriginal    Float @default(0)
+  previousBalance  Float @default(0)
+  adjustedAmount   Float @default(0)
+  remainingBalance Float @default(0)
 
-  createdAt         DateTime       @default(now())
+  cashierName    String?
+  adjustmentDate DateTime @default(now())
+  notes          String?
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  sale     Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  store    Store    @relation(fields: [storeId], references: [id])
+
+  createdAt DateTime @default(now())
 
   @@index([customerId])
   @@index([saleId])
@@ -686,10 +697,10 @@ model AdvanceReceive {
   paymentMode   AdvancePaymentMode
   specification String?
 
-  adjustedAmount Float             @default(0)
-  balanceAmount  Float             @default(0)
-  status         String            @default("AVAILABLE")
-  receiveDate    DateTime          @default(now())
+  adjustedAmount Float    @default(0)
+  balanceAmount  Float    @default(0)
+  status         String   @default("AVAILABLE")
+  receiveDate    DateTime @default(now())
 
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])
@@ -993,22 +1004,22 @@ enum VoucherStatus {
 }
 
 model Account {
-  id             Int           @id @default(autoincrement())
+  id             Int     @id @default(autoincrement())
   storeId        Int
   accountCode    String?
   accountName    String
-  accountGroup   String        @default("General")
-  accountType    String        @default("EXPENSE")
-  isSystem       Boolean       @default(false)
-  openingBalance Float         @default(0)
-  currentBalance Float         @default(0)
+  accountGroup   String  @default("General")
+  accountType    String  @default("EXPENSE")
+  isSystem       Boolean @default(false)
+  openingBalance Float   @default(0)
+  currentBalance Float   @default(0)
   narration      String?
 
-  store          Store         @relation(fields: [storeId], references: [id])
-  ledgerEntries  LedgerEntry[]
+  store         Store         @relation(fields: [storeId], references: [id])
+  ledgerEntries LedgerEntry[]
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([storeId, accountName])
   @@index([storeId])
@@ -1016,46 +1027,46 @@ model Account {
 }
 
 model Voucher {
-  id              Int           @id @default(autoincrement())
-  voucherNo       String
-  voucherType     VoucherType
-  storeId         Int
-  date            DateTime      @default(now())
-  amount          Float         @default(0)
-  paymentMode     String?
-  referenceType   String?
-  referenceId     Int?
-  referenceDocNo  String?
+  id             Int         @id @default(autoincrement())
+  voucherNo      String
+  voucherType    VoucherType
+  storeId        Int
+  date           DateTime    @default(now())
+  amount         Float       @default(0)
+  paymentMode    String?
+  referenceType  String?
+  referenceId    Int?
+  referenceDocNo String?
 
-  partyType       String?
-  partyId         Int?
-  partyName       String?
-  partyPhone      String?
+  partyType  String?
+  partyId    Int?
+  partyName  String?
+  partyPhone String?
 
-  bankName        String?
-  transactionRef  String?
-  narration       String?
-  status          VoucherStatus @default(COMPLETED)
+  bankName       String?
+  transactionRef String?
+  narration      String?
+  status         VoucherStatus @default(COMPLETED)
 
   cancelledAt     DateTime?
   cancelledReason String?
   createdBy       String?
 
-  store           Store         @relation(fields: [storeId], references: [id])
-  customer        Customer?     @relation(fields: [customerId], references: [id])
-  customerId      Int?
-  party           Partymaster?  @relation(fields: [partyId], references: [id])
-  sale            Sale?         @relation(fields: [saleId], references: [id])
-  saleId          Int?
-  purchase        Purchase?     @relation(fields: [purchaseId], references: [id])
-  purchaseId      Int?
-  advanceReceive  AdvanceReceive? @relation(fields: [advanceReceiveId], references: [id])
+  store            Store           @relation(fields: [storeId], references: [id])
+  customer         Customer?       @relation(fields: [customerId], references: [id])
+  customerId       Int?
+  party            Partymaster?    @relation(fields: [partyId], references: [id])
+  sale             Sale?           @relation(fields: [saleId], references: [id])
+  saleId           Int?
+  purchase         Purchase?       @relation(fields: [purchaseId], references: [id])
+  purchaseId       Int?
+  advanceReceive   AdvanceReceive? @relation(fields: [advanceReceiveId], references: [id])
   advanceReceiveId Int?
 
-  entries         LedgerEntry[]
+  entries LedgerEntry[]
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([storeId, voucherNo])
   @@index([storeId])
@@ -1077,16 +1088,15 @@ model LedgerEntry {
   date        DateTime      @default(now())
   status      VoucherStatus @default(COMPLETED)
 
-  voucher     Voucher?      @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-  account     Account?      @relation(fields: [accountId], references: [id])
-  store       Store         @relation(fields: [storeId], references: [id])
+  voucher Voucher? @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id])
+  store   Store    @relation(fields: [storeId], references: [id])
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([storeId])
   @@index([voucherId])
   @@index([accountId])
   @@index([date])
 }
-

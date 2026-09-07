@@ -9,8 +9,12 @@ export const getProductsByStore = (storeId) => {
     where: { storeId },
     include: {
       category: true,
-      metal: true
-    }
+      metal: true,
+      purity: true,
+    },
+    orderBy: {
+      id: "desc",
+    },
   });
 };
 
@@ -20,6 +24,7 @@ export const getProductsByMetalIdRepo = (metalId, storeId) => {
     include: {
       category: true,
       metal: true,
+      purity: true,
     },
     orderBy: {
       id: "asc",
@@ -32,7 +37,8 @@ export const getProductByIdRepo = (id) => {
     where: { id },
     include: {
       category: true,
-      metal: true
+      metal: true,
+      purity: true,
     }
   });
 };
@@ -40,7 +46,12 @@ export const getProductByIdRepo = (id) => {
 export const updateProductRepo = (id, data) => {
   return prisma.product.update({
     where: { id },
-    data
+    data,
+    include: {
+      category: true,
+      metal: true,
+      purity: true,
+    },
   });
 };
 

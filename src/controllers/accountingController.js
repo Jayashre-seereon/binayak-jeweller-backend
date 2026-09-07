@@ -66,14 +66,33 @@ export const getPendingSales = async (req, res) => {
 export const getPendingPurchases = async (req, res) => {
   try {
     const storeId = getStoreId(req);
-    const { partyId } = req.query;
+    const { partyId, phone } = req.query;
     if (!storeId) {
       return res.status(400).json({ success: false, message: "storeId is required" });
     }
-    const purchases = await accountingService.getSupplierPendingPurchasesService(partyId, storeId);
-    return res.status(200).json({ success: true, data: purchases });
+    const result = await accountingService.getSupplierPendingPurchasesService({ partyId, phone }, storeId);
+    return res.status(200).json({
+      success: true,
+      supplier: result.supplier,
+      totalOutstandingDue: result.totalOutstandingDue,
+      data: result.data,
+    });
   } catch (error) {
     console.error("getPendingPurchases error:", error);
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const getPendingSuppliers = async (req, res) => {
+  try {
+    const storeId = getStoreId(req);
+    if (!storeId) {
+      return res.status(400).json({ success: false, message: "storeId is required" });
+    }
+    const suppliers = await accountingService.getPendingSuppliersService(storeId);
+    return res.status(200).json({ success: true, data: suppliers });
+  } catch (error) {
+    console.error("getPendingSuppliers error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };

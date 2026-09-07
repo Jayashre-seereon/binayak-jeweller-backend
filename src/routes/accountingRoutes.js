@@ -5,6 +5,7 @@ import {
   getAccounts,
   getPendingSales,
   getPendingPurchases,
+  getPendingSuppliers,
   createReceipt,
   getReceipts,
   createPayment,
@@ -25,6 +26,7 @@ router.get("/next-number", getNextNumber);
 router.get("/accounts", getAccounts);
 router.get("/pending-sales", getPendingSales);
 router.get("/pending-purchases", getPendingPurchases);
+router.get("/pending-suppliers", getPendingSuppliers);
 
 router.post("/receipts", createReceipt);
 router.get("/receipts", getReceipts);

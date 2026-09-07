@@ -3,6 +3,22 @@ import prisma from "../config/db.js";
 export const createItemRepo = (data) => {
   return prisma.item.create({
     data,
+    include: {
+      product: {
+        include: {
+          category: true,
+          metal: true,
+          purity: true,
+        },
+      },
+      design: {
+        include: {
+          category: true,
+        },
+      },
+      purity: true,
+      store: true,
+    },
   });
 };
 
@@ -12,8 +28,19 @@ export const getItemsByStore = (storeId) => {
       storeId,
     },
     include: {
-      product: true,
-      design: true,
+      product: {
+        include: {
+          category: true,
+          metal: true,
+          purity: true,
+        },
+      },
+      design: {
+        include: {
+          category: true,
+        },
+      },
+      purity: true,
       store: true,
     },
     orderBy: {
@@ -29,8 +56,19 @@ export const getItemsByProductIdRepo = (productId, storeId) => {
       storeId,
     },
     include: {
-      product: true,
-      design: true,
+      product: {
+        include: {
+          category: true,
+          metal: true,
+          purity: true,
+        },
+      },
+      design: {
+        include: {
+          category: true,
+        },
+      },
+      purity: true,
       store: true,
     },
     orderBy: {
@@ -45,8 +83,19 @@ export const getItemByIdRepo = (id) => {
       id,
     },
     include: {
-      product: true,
-      design: true,
+      product: {
+        include: {
+          category: true,
+          metal: true,
+          purity: true,
+        },
+      },
+      design: {
+        include: {
+          category: true,
+        },
+      },
+      purity: true,
       store: true,
     },
   });
@@ -58,6 +107,22 @@ export const updateItemRepo = (id, data) => {
       id,
     },
     data,
+    include: {
+      product: {
+        include: {
+          category: true,
+          metal: true,
+          purity: true,
+        },
+      },
+      design: {
+        include: {
+          category: true,
+        },
+      },
+      purity: true,
+      store: true,
+    },
   });
 };
 

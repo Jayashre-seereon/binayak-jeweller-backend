@@ -37,8 +37,14 @@ export const createProduct = async (data, storeId) => {
       description: data.description,
       categoryId: Number(data.categoryId),
       metalId: Number(data.metalId),
+      purityId: data.purityId ? Number(data.purityId) : null,
       storeId: Number(storeId),
       image: data.image
+    },
+    include: {
+      category: true,
+      metal: true,
+      purity: true,
     }
   });
 
@@ -89,6 +95,12 @@ export const updateProduct = async (id, data, storeId) => {
 
   if (updateData.metalId !== undefined) {
     updateData.metalId = Number(updateData.metalId);
+  }
+
+  if (updateData.purityId !== undefined) {
+    updateData.purityId = updateData.purityId && Number(updateData.purityId) > 0
+      ? Number(updateData.purityId)
+      : null;
   }
 
   return await updateProductRepo(id, updateData);

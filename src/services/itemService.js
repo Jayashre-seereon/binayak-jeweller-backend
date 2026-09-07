@@ -33,12 +33,17 @@ export const createItem = async (data, storeId) => {
   }
 
   // Create Item
+  const purityId = data.purityId && Number(data.purityId) > 0
+    ? Number(data.purityId)
+    : (product.purityId || null);
+
   return await createItemRepo({
     name: data.name,
     description: data.description,
     image: data.image,
     productId: Number(data.productId),
     designId: Number(data.designId),
+    purityId,
     storeId: Number(storeId),
   });
 };
@@ -123,6 +128,9 @@ export const updateItem = async (id, data, storeId) => {
     }),
     ...(data.designId && {
       designId: Number(data.designId),
+    }),
+    ...(data.purityId !== undefined && {
+      purityId: data.purityId && Number(data.purityId) > 0 ? Number(data.purityId) : null,
     }),
   });
 };

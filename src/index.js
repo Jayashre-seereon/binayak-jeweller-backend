@@ -30,7 +30,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://binayak-jewellery-frontend.vercel.app",
+      "https://binayak-jewellery-frontend-five.vercel.app",
     ],
     credentials: true,
   })

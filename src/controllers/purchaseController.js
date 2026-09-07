@@ -1,6 +1,7 @@
 import * as purchaseService from "../services/purchaseService.js";
 import * as purchasePdfService from "../services/purchasePdfService.js";
 import * as reportExcelService from "../services/reportExcelService.js";
+import * as reportPdfService from "../services/reportPdfService.js";
 export const createPurchase = async (req, res) => {
   try {
     const storeId = Number(req.query.storeId);
@@ -27,7 +28,7 @@ export const createPurchase = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Purchase created successfully",
-      purchase
+      purchase: { ...purchase, pdfUrl: `/api/purchases/downloadPdf/${purchase.id}?storeId=${storeId}` }
     });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -80,7 +81,10 @@ export const getPurchases = async (req, res) => {
 
     res.json({
       success: true,
-      purchases
+      purchases: purchases.map((purchase) => ({
+        ...purchase,
+        pdfUrl: `/api/purchases/downloadPdf/${purchase.id}?storeId=${storeId}`,
+      }))
     });
   } catch (err) {
     res.status(400).json({
@@ -99,7 +103,7 @@ export const getPurchaseById = async (req, res) => {
 
     res.json({
       success: true,
-      purchase
+      purchase: { ...purchase, pdfUrl: `/api/purchases/downloadPdf/${purchase.id}?storeId=${Number(req.query.storeId)}` }
     });
   } catch (err) {
     res.status(400).json({
@@ -244,6 +248,7 @@ export const getPurchaseReport = async (
     return res.json({
       success: true,
       ...report,
+      pdfUrl: `/api/purchases/report/export-pdf?storeId=${storeId}&period=${encodeURIComponent(req.query.period || "THIS_MONTH")}&purchaseType=${encodeURIComponent(req.query.purchaseType || "ALL")}`,
     });
   } catch (error) {
     return res.status(400).json({
@@ -287,5 +292,18 @@ export const exportPurchaseReportExcel = async (
           "Unable to export purchase report to Excel.",
       });
     }
+  }
+};
+
+export const exportPurchaseReportPdf = async (req, res) => {
+  try {
+    const report = await purchaseService.getPurchaseReportService({
+      storeId: Number(req.query.storeId), period: req.query.period || "THIS_MONTH",
+      fromDate: req.query.fromDate, toDate: req.query.toDate, purchaseType: req.query.purchaseType || "ALL",
+    });
+    await reportPdfService.generatePurchaseReportPdf(report, res);
+  } catch (error) {
+    console.error("Export purchase report PDF error:", error);
+    if (!res.headersSent) return res.status(400).json({ success: false, message: error.message || "Unable to export purchase report to PDF." });
   }
 };

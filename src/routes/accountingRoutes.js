@@ -13,6 +13,7 @@ import {
   createJournal,
   getJournals,
   getVoucherById,
+  downloadVoucherPdf,
   cancelVoucher,
 } from "../controllers/accountingController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -38,6 +39,7 @@ router.post("/journals", createJournal);
 router.get("/journals", getJournals);
 
 router.get("/vouchers/:id", getVoucherById);
+router.get("/vouchers/:id/downloadPdf", downloadVoucherPdf);
 router.post("/vouchers/:id/cancel", cancelVoucher);
 
 export default router;

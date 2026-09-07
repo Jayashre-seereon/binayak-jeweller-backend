@@ -1,6 +1,7 @@
 import * as salesService from "../services/salesService.js";
 import * as salesPdfService from "../services/salesPdfService.js";
 import * as reportExcelService from "../services/reportExcelService.js";
+import * as reportPdfService from "../services/reportPdfService.js";
 
 export const createSale = async (
   req,
@@ -29,7 +30,7 @@ export const createSale = async (
       success: true,
       message:
         "Sale created successfully",
-      sale,
+      sale: { ...sale, pdfUrl: `/api/sales/downloadPdf/${sale.id}?storeId=${storeId}` },
       invoiceNo: sale.invoiceNo,
       pdfUrl: `/api/sales/downloadPdf/${sale.id}?storeId=${storeId}`,
     });
@@ -70,7 +71,10 @@ export const getSales = async (
     return res.json({
       success: true,
       count: sales.length,
-      sales,
+      sales: sales.map((item) => ({
+        ...item,
+        pdfUrl: `/api/sales/downloadPdf/${item.id}?storeId=${storeId}`,
+      })),
     });
   } catch (error) {
     return res.status(500).json({
@@ -97,7 +101,7 @@ export const getSaleById = async (
 
     return res.json({
       success: true,
-      sale,
+      sale: { ...sale, pdfUrl: `/api/sales/downloadPdf/${sale.id}?storeId=${storeId}` },
     });
   } catch (error) {
     return res.status(404).json({
@@ -195,6 +199,7 @@ export const getSalesReport = async (
     return res.json({
       success: true,
       ...report,
+      pdfUrl: `/api/sales/report/export-pdf?storeId=${storeId}&period=${encodeURIComponent(req.query.period || "THIS_MONTH")}`,
     });
   } catch (error) {
     return res.status(400).json({
@@ -235,5 +240,18 @@ export const exportSalesReportExcel = async (
           "Unable to export sales report to Excel.",
       });
     }
+  }
+};
+
+export const exportSalesReportPdf = async (req, res) => {
+  try {
+    const report = await salesService.getSalesReportService({
+      storeId: Number(req.query.storeId), period: req.query.period || "THIS_MONTH",
+      fromDate: req.query.fromDate, toDate: req.query.toDate,
+    });
+    await reportPdfService.generateSalesReportPdf(report, res);
+  } catch (error) {
+    console.error("Export sales report PDF error:", error);
+    if (!res.headersSent) return res.status(400).json({ success: false, message: error.message || "Unable to export sales report to PDF." });
   }
 };

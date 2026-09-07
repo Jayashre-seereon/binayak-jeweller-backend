@@ -1,4 +1,5 @@
 import * as accountingService from "../services/accountingService.js";
+import { generateVoucherPdf } from "../services/voucherPdfService.js";
 
 const getStoreId = (req) => {
   const s = req.query.storeId || req.body.storeId || req.headers["x-store-id"];
@@ -107,7 +108,7 @@ export const createReceipt = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: `Receipt Voucher ${voucher.voucherNo} created successfully`,
-      data: voucher,
+      data: { ...voucher, pdfUrl: `/api/accounting/vouchers/${voucher.id}/downloadPdf?storeId=${storeId}` },
     });
   } catch (error) {
     console.error("createReceipt error:", error);
@@ -122,7 +123,14 @@ export const getReceipts = async (req, res) => {
       return res.status(400).json({ success: false, message: "storeId is required" });
     }
     const result = await accountingService.getVouchersService("RECEIPT", storeId, req.query);
-    return res.status(200).json({ success: true, ...result });
+    return res.status(200).json({
+      success: true,
+      ...result,
+      vouchers: result.vouchers.map((voucher) => ({
+        ...voucher,
+        pdfUrl: `/api/accounting/vouchers/${voucher.id}/downloadPdf?storeId=${storeId}`,
+      })),
+    });
   } catch (error) {
     console.error("getReceipts error:", error);
     return res.status(400).json({ success: false, message: error.message });
@@ -139,7 +147,7 @@ export const createPayment = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: `Payment Voucher ${voucher.voucherNo} created successfully`,
-      data: voucher,
+      data: { ...voucher, pdfUrl: `/api/accounting/vouchers/${voucher.id}/downloadPdf?storeId=${storeId}` },
     });
   } catch (error) {
     console.error("createPayment error:", error);
@@ -154,7 +162,14 @@ export const getPayments = async (req, res) => {
       return res.status(400).json({ success: false, message: "storeId is required" });
     }
     const result = await accountingService.getVouchersService("PAYMENT", storeId, req.query);
-    return res.status(200).json({ success: true, ...result });
+    return res.status(200).json({
+      success: true,
+      ...result,
+      vouchers: result.vouchers.map((voucher) => ({
+        ...voucher,
+        pdfUrl: `/api/accounting/vouchers/${voucher.id}/downloadPdf?storeId=${storeId}`,
+      })),
+    });
   } catch (error) {
     console.error("getPayments error:", error);
     return res.status(400).json({ success: false, message: error.message });
@@ -171,7 +186,7 @@ export const createJournal = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: `Journal Entry ${voucher.voucherNo} created successfully`,
-      data: voucher,
+      data: { ...voucher, pdfUrl: `/api/accounting/vouchers/${voucher.id}/downloadPdf?storeId=${storeId}` },
     });
   } catch (error) {
     console.error("createJournal error:", error);
@@ -186,7 +201,14 @@ export const getJournals = async (req, res) => {
       return res.status(400).json({ success: false, message: "storeId is required" });
     }
     const result = await accountingService.getVouchersService("JOURNAL", storeId, req.query);
-    return res.status(200).json({ success: true, ...result });
+    return res.status(200).json({
+      success: true,
+      ...result,
+      vouchers: result.vouchers.map((voucher) => ({
+        ...voucher,
+        pdfUrl: `/api/accounting/vouchers/${voucher.id}/downloadPdf?storeId=${storeId}`,
+      })),
+    });
   } catch (error) {
     console.error("getJournals error:", error);
     return res.status(400).json({ success: false, message: error.message });
@@ -201,10 +223,25 @@ export const getVoucherById = async (req, res) => {
       return res.status(400).json({ success: false, message: "storeId is required" });
     }
     const voucher = await accountingService.getVoucherByIdService(id, storeId);
-    return res.status(200).json({ success: true, data: voucher });
+    return res.status(200).json({
+      success: true,
+      data: { ...voucher, pdfUrl: `/api/accounting/vouchers/${voucher.id}/downloadPdf?storeId=${storeId}` },
+    });
   } catch (error) {
     console.error("getVoucherById error:", error);
     return res.status(404).json({ success: false, message: error.message });
+  }
+};
+
+export const downloadVoucherPdf = async (req, res) => {
+  try {
+    const storeId = getStoreId(req);
+    if (!storeId) return res.status(400).json({ success: false, message: "storeId is required" });
+    const voucher = await accountingService.getVoucherByIdService(req.params.id, storeId);
+    await generateVoucherPdf(voucher, res);
+  } catch (error) {
+    console.error("downloadVoucherPdf error:", error);
+    if (!res.headersSent) return res.status(404).json({ success: false, message: error.message });
   }
 };
 

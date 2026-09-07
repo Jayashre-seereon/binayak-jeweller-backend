@@ -1,21 +1,19 @@
-import PDFDocument from "pdfkit";
 import prisma from "../config/db.js";
 import { numberToWordsIndian } from "../utils/numberToWords.js";
+import { createPdfDoc, drawGoldHeader, drawFooter, PDF_PAGE, PDF_THEME } from "./pdfTemplate.js";
 
-const PAGE_WIDTH = 595.28;
-const PAGE_HEIGHT = 841.89;
-const MARGIN = 24;
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2; // 547.28
+const MARGIN = PDF_PAGE.margin;
+const CONTENT_WIDTH = PDF_PAGE.width - MARGIN * 2;
 
 const COLORS = {
-  black: "#000000",
-  text: "#111827",
-  muted: "#4b5563",
-  border: "#9ca3af",
-  darkBorder: "#374151",
-  lightBorder: "#d1d5db",
-  zebra: "#f9fafb",
-  headerBg: "#f3f4f6",
+  black: PDF_THEME.ink,
+  text: PDF_THEME.ink,
+  muted: PDF_THEME.muted,
+  border: PDF_THEME.border,
+  darkBorder: PDF_THEME.navyDeep,
+  lightBorder: "#e5dcc6",
+  zebra: PDF_THEME.soft,
+  headerBg: PDF_THEME.navy,
 };
 
 const money = (val) => Number(val || 0).toFixed(2);
@@ -73,33 +71,19 @@ export const generatePurchasePdf = async (id, storeId, res) => {
 
   if (!purchase) throw new Error("Purchase invoice not found");
 
-  const doc = new PDFDocument({
-    size: "A4",
-    margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
-    bufferPages: true,
-    autoFirstPage: true,
-  });
+  const doc = createPdfDoc();
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="Purchase-Invoice-${purchase.invoiceNo || purchase.id}.pdf"`);
   doc.pipe(res);
 
-  let y = MARGIN;
-
-  /*
-  ========================================
-  1. TOP HEADER (PURCHASE INVOICE | PURCHASE COPY | BRANCH)
-  ========================================
-  */
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(COLORS.black);
-  doc.text("PURCHASE INVOICE", MARGIN, y, { width: CONTENT_WIDTH, align: "center" });
-
-  doc.fontSize(9.5).text("PURCHASE COPY", MARGIN + 300, y, { width: CONTENT_WIDTH - 300, align: "right" });
-  y += 12;
-
-  const branchName = purchase.store?.storeName || "Bhubaneswar Branch";
-  doc.font("Helvetica-Bold").fontSize(9).text(branchName.includes("Branch") ? branchName : `${branchName} Branch`, MARGIN + 300, y, { width: CONTENT_WIDTH - 300, align: "right" });
-  y += 16;
+  let y = drawGoldHeader(doc, {
+    title: "Purchase Invoice",
+    copyLabel: "Purchase Copy",
+    branchName: purchase.store?.storeName || "Patia Branch, Bhubaneswar",
+    storeName: purchase.store?.storeName || "Binayak Jewellers",
+    tagline: purchase.store?.tagline || "Patia Branch, Bhubaneswar",
+  });
 
   /*
   ========================================
@@ -499,5 +483,10 @@ export const generatePurchasePdf = async (id, storeId, res) => {
   doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black);
   doc.text("Authorised Signatory", rightColX + 8, ry, { width: rightColWidth - 16, align: "right" });
 
+  drawFooter(
+    doc,
+    purchase.store?.tagline || "Thank you for visiting Binayak Jewellers, Patia - terms & conditions overleaf",
+    PDF_PAGE.height - PDF_PAGE.margin - 18
+  );
   doc.end();
 };

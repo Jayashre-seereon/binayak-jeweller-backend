@@ -177,9 +177,9 @@ export const createPurchase = async (data, storeId) => {
   const totalPaid = Math.round((purchasePayments.reduce((s, p) => s + Number(p.amount || 0), 0) + Number.EPSILON) * 100) / 100;
   const netPayable = Number(data.netPayable || data.totalAmount || 0);
 
-  if (Math.abs(totalPaid - netPayable) > 0.01) {
+  if (totalPaid > netPayable + 0.01) {
     throw purchaseError(
-      `Paid amount (${totalPaid.toFixed(2)}) must exactly match total amount (${netPayable.toFixed(2)}).`
+      `Paid amount (${totalPaid.toFixed(2)}) cannot exceed total amount (${netPayable.toFixed(2)}).`
     );
   }
 

@@ -23,6 +23,8 @@ import inventoryTransferRoutes from "./routes/inventoryTransferRoutes.js"
 import advanceReceiveRoutes from "./routes/advanceReceiveRoutes.js";
 import salesRoutes from "./routes/salesRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
+import accountingRoutes from "./routes/accountingRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 const app = express();
 app.use(
   cors({
@@ -58,6 +60,8 @@ app.use("/api/inventory-transfer", inventoryTransferRoutes);
 app.use("/api/advance-receives", advanceReceiveRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/customers", customerRoutes);
+app.use("/api/accounting", accountingRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.get("/", (req, res) => {
   res.send("API is running");

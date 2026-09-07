@@ -64,6 +64,9 @@ model Store {
   customerAdjustmentLogs CustomerAdjustmentLog[]
   transfersFrom          InventoryTransfer[]     @relation("TransferFromStore")
   transfersTo            InventoryTransfer[]     @relation("TransferToStore")
+  accounts               Account[]
+  vouchers               Voucher[]
+  ledgerEntries          LedgerEntry[]
 }
 
 model Brand {
@@ -259,6 +262,9 @@ model StoreCounter {
   lastTransferNumber Int @default(0)
   lastSaleNumber     Int @default(0)
   lastInventoryNumber Int @default(0)
+  lastReceiptVoucherNumber Int @default(0)
+  lastPaymentVoucherNumber Int @default(0)
+  lastJournalVoucherNumber Int @default(0)
 
   store Store @relation(fields: [storeId], references: [id])
 }
@@ -289,6 +295,7 @@ model Partymaster {
   partyOpeningBalance PartyOpeningBalance[]
   purchases           Purchase[]
   sales               Sale[]
+  vouchers            Voucher[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 }
@@ -398,6 +405,7 @@ model Purchase {
   payments     PurchasePayment[]
   inventory    Inventory[]
   saleOldGolds SaleOldGold[]
+  vouchers     Voucher[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 }
@@ -617,6 +625,7 @@ model Customer {
   purchases       Purchase[]
   advanceReceives AdvanceReceive[]
   adjustmentLogs  CustomerAdjustmentLog[]
+  vouchers        Voucher[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -687,6 +696,7 @@ model AdvanceReceive {
 
   customer        Customer?               @relation(fields: [customerId], references: [id])
   saleAdjustments SaleAdvanceAdjustment[]
+  vouchers        Voucher[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -787,6 +797,7 @@ model Sale {
   oldGolds           SaleOldGold[]
   advanceAdjustments SaleAdvanceAdjustment[]
   adjustmentLogs     CustomerAdjustmentLog[]
+  vouchers           Voucher[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -968,5 +979,114 @@ model PurchasePayment {
 
   @@index([purchaseId])
   @@index([storeId])
+}
+
+enum VoucherType {
+  RECEIPT
+  PAYMENT
+  JOURNAL
+}
+
+enum VoucherStatus {
+  COMPLETED
+  CANCELLED
+}
+
+model Account {
+  id             Int           @id @default(autoincrement())
+  storeId        Int
+  accountCode    String?
+  accountName    String
+  accountGroup   String        @default("General")
+  accountType    String        @default("EXPENSE")
+  isSystem       Boolean       @default(false)
+  openingBalance Float         @default(0)
+  currentBalance Float         @default(0)
+  narration      String?
+
+  store          Store         @relation(fields: [storeId], references: [id])
+  ledgerEntries  LedgerEntry[]
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([storeId, accountName])
+  @@index([storeId])
+  @@index([accountGroup])
+}
+
+model Voucher {
+  id              Int           @id @default(autoincrement())
+  voucherNo       String
+  voucherType     VoucherType
+  storeId         Int
+  date            DateTime      @default(now())
+  amount          Float         @default(0)
+  paymentMode     String?
+  referenceType   String?
+  referenceId     Int?
+  referenceDocNo  String?
+
+  partyType       String?
+  partyId         Int?
+  partyName       String?
+  partyPhone      String?
+
+  bankName        String?
+  transactionRef  String?
+  narration       String?
+  status          VoucherStatus @default(COMPLETED)
+
+  cancelledAt     DateTime?
+  cancelledReason String?
+  createdBy       String?
+
+  store           Store         @relation(fields: [storeId], references: [id])
+  customer        Customer?     @relation(fields: [customerId], references: [id])
+  customerId      Int?
+  party           Partymaster?  @relation(fields: [partyId], references: [id])
+  sale            Sale?         @relation(fields: [saleId], references: [id])
+  saleId          Int?
+  purchase        Purchase?     @relation(fields: [purchaseId], references: [id])
+  purchaseId      Int?
+  advanceReceive  AdvanceReceive? @relation(fields: [advanceReceiveId], references: [id])
+  advanceReceiveId Int?
+
+  entries         LedgerEntry[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([storeId, voucherNo])
+  @@index([storeId])
+  @@index([voucherType])
+  @@index([status])
+  @@index([date])
+}
+
+model LedgerEntry {
+  id          Int           @id @default(autoincrement())
+  voucherId   Int?
+  storeId     Int
+  accountId   Int?
+  accountName String
+  entryType   String
+  debit       Float         @default(0)
+  credit      Float         @default(0)
+  narration   String?
+  date        DateTime      @default(now())
+  status      VoucherStatus @default(COMPLETED)
+
+  voucher     Voucher?      @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  account     Account?      @relation(fields: [accountId], references: [id])
+  store       Store         @relation(fields: [storeId], references: [id])
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([storeId])
+  @@index([voucherId])
+  @@index([accountId])
+  @@index([date])
 }
 

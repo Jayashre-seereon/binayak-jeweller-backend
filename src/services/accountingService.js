@@ -924,6 +924,7 @@ export const getAccountingSummaryService = async (storeId) => {
     pendingSales,
     pendingPurchases,
     totalVouchersCount,
+    availableAdvances,
   ] = await Promise.all([
     prisma.voucher.aggregate({
       _sum: { amount: true },

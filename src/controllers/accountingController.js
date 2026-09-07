@@ -29,6 +29,7 @@ export const getNextNumber = async (req, res) => {
     const nextNumber = await accountingService.getNextVoucherNumberPreviewService(type, storeId);
     return res.status(200).json({ success: true, nextNumber });
   } catch (error) {
+    console.error("getNextNumber error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -42,6 +43,7 @@ export const getAccounts = async (req, res) => {
     const accounts = await accountingService.getAccountsService(storeId);
     return res.status(200).json({ success: true, data: accounts });
   } catch (error) {
+    console.error("getAccounts error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -56,6 +58,7 @@ export const getPendingSales = async (req, res) => {
     const sales = await accountingService.getCustomerPendingSalesService(customerId, phone, storeId);
     return res.status(200).json({ success: true, data: sales });
   } catch (error) {
+    console.error("getPendingSales error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -70,6 +73,7 @@ export const getPendingPurchases = async (req, res) => {
     const purchases = await accountingService.getSupplierPendingPurchasesService(partyId, storeId);
     return res.status(200).json({ success: true, data: purchases });
   } catch (error) {
+    console.error("getPendingPurchases error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -101,6 +105,7 @@ export const getReceipts = async (req, res) => {
     const result = await accountingService.getVouchersService("RECEIPT", storeId, req.query);
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
+    console.error("getReceipts error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -132,6 +137,7 @@ export const getPayments = async (req, res) => {
     const result = await accountingService.getVouchersService("PAYMENT", storeId, req.query);
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
+    console.error("getPayments error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -163,6 +169,7 @@ export const getJournals = async (req, res) => {
     const result = await accountingService.getVouchersService("JOURNAL", storeId, req.query);
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
+    console.error("getJournals error:", error);
     return res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -177,6 +184,7 @@ export const getVoucherById = async (req, res) => {
     const voucher = await accountingService.getVoucherByIdService(id, storeId);
     return res.status(200).json({ success: true, data: voucher });
   } catch (error) {
+    console.error("getVoucherById error:", error);
     return res.status(404).json({ success: false, message: error.message });
   }
 };

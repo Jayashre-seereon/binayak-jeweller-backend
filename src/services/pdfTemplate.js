@@ -36,7 +36,7 @@ export const createPdfDoc = () =>
 
 export const headerBrand = (storeName = "BINAYAK JEWELLERS") => String(storeName || "BINAYAK JEWELLERS").toUpperCase();
 
-export const drawGoldHeader = (doc, { title, copyLabel, branchName, storeName, tagline, y = PDF_PAGE.margin } = {}) => {
+export const drawGoldHeader = (doc, { title, branchName, storeName, tagline, y = PDF_PAGE.margin } = {}) => {
   const x = PDF_PAGE.margin;
   const width = PDF_PAGE.width - PDF_PAGE.margin * 2;
   const headerH = 72;
@@ -47,34 +47,31 @@ export const drawGoldHeader = (doc, { title, copyLabel, branchName, storeName, t
   doc.rect(x + width - 14, y, 14, headerH).fill(PDF_THEME.gold);
   doc.restore();
 
-  const logoX = x + 18;
-  const logoY = y + 10;
-  doc.save().circle(logoX + 18, logoY + 18, 18).fillAndStroke(PDF_THEME.white, PDF_THEME.gold);
+  const logoX = x + 12;
+  const logoY = y + 12;
+  doc.save().circle(logoX + 24, logoY + 24, 24).fillAndStroke(PDF_THEME.white, PDF_THEME.gold);
   try {
-    doc.image(LOGO_IMAGE, logoX + 4, logoY + 4, { fit: [28, 28], align: "center", valign: "center" });
+    doc.image(LOGO_IMAGE, logoX + 6, logoY + 6, { fit: [36, 36], align: "center", valign: "center" });
   } catch {
-    doc.fillColor(PDF_THEME.navyDeep).font("Helvetica-Bold").fontSize(18).text("BJ", logoX + 2, logoY + 9, { width: 32, align: "center" });
+    doc.fillColor(PDF_THEME.navyDeep).font("Helvetica-Bold").fontSize(18).text("BJ", logoX + 8, logoY + 17, { width: 32, align: "center" });
   }
   doc.restore();
 
-  doc.fillColor(PDF_THEME.white).font("Helvetica-Bold").fontSize(16).text(headerBrand(storeName), x + 58, y + 14, { width: 300 });
+  doc.fillColor(PDF_THEME.white).font("Helvetica-Bold").fontSize(16).text(headerBrand(storeName), x + 72, y + 14, { width: 286 });
   if (tagline) {
-    doc.fillColor("#f7e9c7").font("Helvetica-Oblique").fontSize(7.5).text(tagline, x + 58, y + 34, { width: 310 });
+    doc.fillColor("#f7e9c7").font("Helvetica-Oblique").fontSize(7.5).text(tagline, x + 72, y + 34, { width: 296 });
   }
 
   const badgeX = x + width - 66;
   const badgeY = y + 12;
   doc.save().circle(badgeX + 24, badgeY + 24, 24).fillAndStroke(PDF_THEME.white, PDF_THEME.goldLight);
-  doc.fillColor(PDF_THEME.navyDeep).font("Helvetica-Bold").fontSize(10).text("SINCE", badgeX + 8, badgeY + 8, { width: 32, align: "center" });
-  doc.fontSize(15).text("2010", badgeX + 4, badgeY + 19, { width: 40, align: "center" });
-  doc.fontSize(6).text("TRUSTED", badgeX + 5, badgeY + 35, { width: 38, align: "center" });
+  doc.fillColor(PDF_THEME.navyDeep).font("Helvetica-Bold").fontSize(8.5).text("SINCE", badgeX + 8, badgeY + 9, { width: 32, align: "center" });
+  doc.fontSize(13).text("2010", badgeX + 4, badgeY + 19, { width: 40, align: "center" });
+  doc.fontSize(5.5).text("TRUSTED", badgeX + 5, badgeY + 36, { width: 38, align: "center" });
   doc.restore();
 
   const secondY = y + headerH + 8;
   doc.fillColor(PDF_THEME.ink).font("Helvetica-Bold").fontSize(11).text(String(title || "").toUpperCase(), x + 18, secondY);
-  if (copyLabel) {
-    doc.font("Helvetica-Bold").fontSize(8.5).text(copyLabel, x + width - 110, secondY + 1, { width: 92, align: "right" });
-  }
   if (branchName) {
     doc.font("Helvetica").fontSize(7.5).fillColor(PDF_THEME.muted).text(branchName, x + 18, secondY + 13);
   }
@@ -89,5 +86,3 @@ export const drawFooter = (doc, text, y) => {
   doc.moveTo(x, y).lineTo(x + width, y).lineWidth(0.8).strokeColor(PDF_THEME.gold).stroke();
   doc.fillColor(PDF_THEME.muted).font("Helvetica-Oblique").fontSize(7.2).text(text, x, y + 8, { width, align: "center" });
 };
-
-export const formatCopyLabel = (copyLabel) => String(copyLabel || "").toUpperCase();

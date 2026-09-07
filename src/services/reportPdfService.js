@@ -6,7 +6,6 @@ const text = (value) => String(value ?? "-");
 
 const drawReportPage = (doc, title, branchName) => drawGoldHeader(doc, {
   title,
-  copyLabel: "REPORT COPY",
   branchName,
   tagline: "Paria Branch, Bhubaneswar",
 });

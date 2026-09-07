@@ -15,7 +15,6 @@ export const generateVoucherPdf = async (voucher, res) => {
   const title = `${label(voucher.voucherType)} VOUCHER`;
   const contentTop = drawGoldHeader(doc, {
     title,
-    copyLabel: "ACCOUNTING COPY",
     storeName: store.storeName,
     branchName: store.location || store.address,
     tagline: store.tagline || "Paria Branch, Bhubaneswar",

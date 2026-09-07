@@ -104,7 +104,6 @@ export const generateSalePdf = async (id, storeId, res) => {
 
   let y = drawGoldHeader(doc, {
     title: "Tax Invoice",
-    copyLabel: "Customer Copy",
     branchName: sale.store?.storeName || "Patia Branch, Bhubaneswar",
     storeName: sale.store?.storeName || "Binayak Jewellers",
     tagline: sale.store?.tagline || "Patia Branch, Bhubaneswar",

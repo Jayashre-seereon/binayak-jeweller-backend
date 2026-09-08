@@ -28,6 +28,11 @@ export const ensureDefaultAccounts = async (storeId, tx = prisma) => {
   const numericStoreId = Number(storeId);
   if (!numericStoreId) return;
 
+  const existingCount = await tx.account.count({
+    where: { storeId: numericStoreId },
+  });
+  if (existingCount >= DEFAULT_ACCOUNTS.length) return;
+
   for (const acc of DEFAULT_ACCOUNTS) {
     await tx.account.upsert({
       where: {
@@ -273,9 +278,9 @@ export const createReceiptVoucherService = async (data, storeId, user = null) =>
   const referenceType = String(data.referenceType || "OTHER").toUpperCase();
   const date = data.date ? new Date(data.date) : new Date();
 
-  return prisma.$transaction(async (tx) => {
-    await ensureDefaultAccounts(numericStoreId, tx);
+  await ensureDefaultAccounts(numericStoreId);
 
+  return prisma.$transaction(async (tx) => {
     const voucherNo = await generateVoucherNo(numericStoreId, "RECEIPT", tx);
     const bankOrCashAccount = paymentMode === "CASH" ? "Cash in Hand" : "Bank / UPI Account";
 
@@ -524,6 +529,9 @@ export const createReceiptVoucherService = async (data, storeId, user = null) =>
     }
 
     return voucherRecord;
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 
@@ -545,9 +553,9 @@ export const createPaymentVoucherService = async (data, storeId, user = null) =>
   const referenceType = String(data.referenceType || "OTHER").toUpperCase();
   const date = data.date ? new Date(data.date) : new Date();
 
-  return prisma.$transaction(async (tx) => {
-    await ensureDefaultAccounts(numericStoreId, tx);
+  await ensureDefaultAccounts(numericStoreId);
 
+  return prisma.$transaction(async (tx) => {
     const voucherNo = await generateVoucherNo(numericStoreId, "PAYMENT", tx);
     const bankOrCashAccount = paymentMode === "CASH" ? "Cash in Hand" : "Bank / UPI Account";
 
@@ -776,6 +784,9 @@ export const createPaymentVoucherService = async (data, storeId, user = null) =>
     }
 
     return voucherRecord;
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 
@@ -833,8 +844,9 @@ export const createJournalEntryService = async (data, storeId, user = null) => {
 
   const date = data.date ? new Date(data.date) : new Date();
 
+  await ensureDefaultAccounts(numericStoreId);
+
   return prisma.$transaction(async (tx) => {
-    await ensureDefaultAccounts(numericStoreId, tx);
     const voucherNo = await generateVoucherNo(numericStoreId, "JOURNAL", tx);
 
     const voucherRecord = await tx.voucher.create({
@@ -857,6 +869,9 @@ export const createJournalEntryService = async (data, storeId, user = null) => {
     });
 
     return voucherRecord;
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 
@@ -997,6 +1012,9 @@ export const cancelVoucherService = async (voucherId, storeId, reason, user = nu
     });
 
     return updatedVoucher;
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 

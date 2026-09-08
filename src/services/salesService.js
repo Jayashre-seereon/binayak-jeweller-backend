@@ -199,11 +199,9 @@ export const createSaleService = async (data, storeId, user = null) => {
         );
       }
 
-      const inventories = [];
-      for (const invId of inventoryIds) {
-        const inv = await validateInventory(tx, invId, numericStoreId);
-        inventories.push(inv);
-      }
+      const inventories = await Promise.all(
+        inventoryIds.map((invId) => validateInventory(tx, invId, numericStoreId))
+      );
 
       /*
       ========================================
@@ -675,13 +673,17 @@ export const createSaleService = async (data, storeId, user = null) => {
       8. CREATE CUSTOMER ADJUSTMENT LOGS
       ========================================
       */
-      for (const log of customerAdjustmentLogsToCreate) {
-        await createCustomerAdjustmentLogRepo(
-          {
-            ...log,
-            saleId: sale.id,
-          },
-          tx
+      if (customerAdjustmentLogsToCreate.length > 0) {
+        await Promise.all(
+          customerAdjustmentLogsToCreate.map((log) =>
+            createCustomerAdjustmentLogRepo(
+              {
+                ...log,
+                saleId: sale.id,
+              },
+              tx
+            )
+          )
         );
       }
 
@@ -690,10 +692,13 @@ export const createSaleService = async (data, storeId, user = null) => {
       9. UPDATE INVENTORY STATUS -> SOLD
       ========================================
       */
-      for (const inventory of inventories) {
-        await tx.inventory.update({
+      if (inventories.length > 0) {
+        await tx.inventory.updateMany({
           where: {
-            id: inventory.id,
+            id: {
+              in: inventories.map((inv) => inv.id),
+            },
+            storeId: numericStoreId,
           },
           data: {
             status: "SOLD",
@@ -704,7 +709,8 @@ export const createSaleService = async (data, storeId, user = null) => {
       return withSaleItemUnits(sale);
     },
     {
-      isolationLevel: "Serializable",
+      maxWait: 60000,
+      timeout: 300000,
     }
   );
 };

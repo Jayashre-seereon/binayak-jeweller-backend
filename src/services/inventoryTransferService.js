@@ -256,6 +256,9 @@ export const createTransferService = async ({
     );
 
     return transfer;
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 
@@ -439,6 +442,9 @@ export const updateTransferService = async ({
     return await transferRepo.getTransferByIdRepo(
       transferId
     );
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 // =====================================================
@@ -520,6 +526,9 @@ export const receiveTransferService = async ({
     return await transferRepo.getTransferByIdRepo(
       transferId
     );
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 
@@ -570,6 +579,9 @@ export const cancelTransferService = async ({
     return await transferRepo.getTransferByIdRepo(
       transferId
     );
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 

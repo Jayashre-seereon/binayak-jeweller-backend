@@ -643,9 +643,9 @@ export const updatePurchase = async (id, data, storeId) => {
     const totalPaid = Math.round((updatedPayments.reduce((s, p) => s + Number(p.amount || 0), 0) + Number.EPSILON) * 100) / 100;
     const net = Number(data.netPayable || data.totalAmount || purchase.netPayable || purchase.totalAmount || 0);
 
-    if (Math.abs(totalPaid - net) > 0.01) {
+    if (totalPaid > net + 0.01) {
       throw purchaseError(
-        `Paid amount (${totalPaid.toFixed(2)}) must exactly match total amount (${net.toFixed(2)}).`
+        `Paid amount (${totalPaid.toFixed(2)}) cannot exceed total amount (${net.toFixed(2)}).`
       );
     }
 
@@ -657,6 +657,10 @@ export const updatePurchase = async (id, data, storeId) => {
       deleteMany: {},
       create: updatedPayments
     };
+  } else if (data.netPayable !== undefined || data.totalAmount !== undefined) {
+    const net = Number(data.netPayable || data.totalAmount || purchase.netPayable || purchase.totalAmount || 0);
+    const existingPaid = Number(purchase.paidAmount || 0);
+    updateData.dueAmount = Math.max(0, Math.round((net - existingPaid + Number.EPSILON) * 100) / 100);
   }
 
   return withPurchaseItemUnits(await attachPurchaseItemCodes(await updatePurchaseRepo(Number(id), updateData)));

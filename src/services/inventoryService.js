@@ -231,6 +231,9 @@ export const createInventoryService = async (
 
       throw error;
     }
+  }, {
+    maxWait: 60000,
+    timeout: 300000,
   });
 };
 
@@ -292,6 +295,7 @@ export const updateInventoryService = async (
     throw inventoryError("Inventory record not found.");
   }
 
+  delete data.status;
   delete data.purchaseItemId;
   delete data.purchaseId;
   delete data.storeId;
@@ -337,6 +341,12 @@ export const updateInventoryStatusService = async (
 
   if (!allowedStatuses.includes(status)) {
     throw inventoryError("Please choose a valid inventory status.");
+  }
+
+  if (status === "SOLD") {
+    throw inventoryError(
+      "Inventory status cannot be manually changed to SOLD. It is automatically updated when a sales invoice is created."
+    );
   }
 
   const inventory =

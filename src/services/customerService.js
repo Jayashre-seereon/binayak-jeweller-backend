@@ -19,6 +19,9 @@ export const getOrCreateCustomerService = async (data, storeId, tx = prisma) => 
     const count = await tx.customer.count({ where: { storeId: Number(storeId) } });
     const customerCode = `CUST-${String(count + 1).padStart(4, "0")}`;
 
+    const idType = data.customerIdType || data.idType || (data.customerAadhaar || data.aadhaar ? "AADHAR" : null);
+    const idNumber = data.customerIdNumber || data.idNumber || data.customerAadhaar || data.aadhaar || null;
+
     customer = await createCustomerRepo(
       {
         name: data.customerName || data.name || "Customer",
@@ -28,8 +31,8 @@ export const getOrCreateCustomerService = async (data, storeId, tx = prisma) => 
         state: data.customerState || data.state || "ODISHA",
         pan: data.customerPan || data.pan || null,
         gst: data.customerGst || data.gst || null,
-        idType: data.customerIdType || data.idType || null,
-        idNumber: data.customerIdNumber || data.idNumber || null,
+        idType,
+        idNumber,
         customerCode,
         storeId: Number(storeId),
       },
@@ -45,6 +48,10 @@ export const getOrCreateCustomerService = async (data, storeId, tx = prisma) => 
     if (data.customerCity && !customer.city) updateData.city = data.customerCity.trim();
     if (data.customerPan && !customer.pan) updateData.pan = data.customerPan.trim().toUpperCase();
     if (data.customerGst && !customer.gst) updateData.gst = data.customerGst.trim().toUpperCase();
+    if ((data.customerAadhaar || data.aadhaar) && !customer.idNumber) {
+      updateData.idType = "AADHAR";
+      updateData.idNumber = String(data.customerAadhaar || data.aadhaar).trim().replace(/\D/g, "");
+    }
 
     if (Object.keys(updateData).length > 0) {
       customer = await updateCustomerRepo(customer.id, updateData, tx);

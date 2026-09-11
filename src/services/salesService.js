@@ -123,9 +123,34 @@ export const createSaleService = async (data, storeId, user = null) => {
       let customerPhone = data.customerPhone?.trim() || "";
       let customerAddress = data.customerAddress?.trim() || "";
       let customerCity = data.customerCity?.trim() || "";
-      let customerPan = data.customerPan?.trim() || "";
-      let customerGst = data.customerGst?.trim() || "";
+      let customerPan = data.customerPan?.trim().toUpperCase() || "";
+      let customerAadhaar = (data.customerAadhaar || data.aadhaar || "")?.trim().replace(/\D/g, "");
+      let customerGst = data.customerGst?.trim().toUpperCase() || "";
       let customerState = data.customerState?.trim() || "";
+
+      if (!customerName) {
+        throw saleError("Customer Name is required to create a sale invoice.");
+      }
+
+      if (customerPhone) {
+        const cleanPhone = customerPhone.replace(/\D/g, "");
+        if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+          throw saleError("Please provide a valid 10-digit customer mobile number starting with 6-9.");
+        }
+        customerPhone = cleanPhone;
+      }
+
+      if (customerAadhaar && !/^\d{12}$/.test(customerAadhaar)) {
+        throw saleError("Customer Aadhaar number must be exactly 12 digits.");
+      }
+
+      if (customerPan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(customerPan)) {
+        throw saleError("Customer PAN format is invalid. Must be 10 characters (e.g. ABCDE1234F).");
+      }
+
+      if (customerGst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(customerGst)) {
+        throw saleError("Customer GSTIN format is invalid. Must be 15 characters (e.g. 21AAFCA3795A1Z5).");
+      }
 
       if (data.partyId) {
         const party = await tx.partymaster.findFirst({
@@ -156,6 +181,7 @@ export const createSaleService = async (data, storeId, user = null) => {
           customerAddress,
           customerCity,
           customerPan,
+          customerAadhaar,
           customerGst,
           customerState,
         },
@@ -247,19 +273,29 @@ export const createSaleService = async (data, storeId, user = null) => {
 
         const stoneAmount = roundMoney(Number(item.stoneAmount || 0));
         const hallmarkCharges = roundMoney(Number(item.hallmarkCharges || 0));
-        const otherCharges = roundMoney(
-          Number(item.otherCharges ?? item.otherAmount ?? 0)
-        );
-        const itemDiscount = roundMoney(Number(item.discount || 0));
+        if (grossWeight <= 0) {
+          throw saleError(`Item #${index + 1} (${inventory.item?.name || inventory.product?.name}): Gross weight must be greater than 0.`);
+        }
+        if (stoneWeight > grossWeight) {
+          throw saleError(`Item #${index + 1} (${inventory.item?.name || inventory.product?.name}): Stone weight cannot exceed gross weight.`);
+        }
+        if (rate <= 0) {
+          throw saleError(`Item #${index + 1} (${inventory.item?.name || inventory.product?.name}): Metal rate must be greater than 0.`);
+        }
 
-        const itemTotalAmount = roundMoney(
+        const preDiscountAmount = roundMoney(
           metalAmount +
           makingCharges +
           stoneAmount +
           hallmarkCharges +
-          otherCharges -
-          itemDiscount
+          otherCharges
         );
+
+        if (itemDiscount > preDiscountAmount && preDiscountAmount > 0) {
+          throw saleError(`Item #${index + 1} (${inventory.item?.name || inventory.product?.name}): Item discount (₹${itemDiscount}) cannot exceed item gross total (₹${preDiscountAmount}).`);
+        }
+
+        const itemTotalAmount = roundMoney(Math.max(0, preDiscountAmount - itemDiscount));
 
         const particulars =
           item.particulars?.trim() ||
@@ -326,8 +362,16 @@ export const createSaleService = async (data, storeId, user = null) => {
 
       const offerDiscount = roundMoney(Number(data.offerDiscount || 0));
       const discount = roundMoney(Number(data.discount || 0));
+      const totalDiscounts = roundMoney(offerDiscount + discount);
+
+      if (totalDiscounts > grossAmount) {
+        throw saleError(
+          `Total discount (Rs. ${formatMoney(totalDiscounts)}) cannot exceed gross invoice amount (Rs. ${formatMoney(grossAmount)}).`
+        );
+      }
+
       const taxableAmount = roundMoney(
-        Math.max(0, grossAmount - offerDiscount - discount)
+        Math.max(0, grossAmount - totalDiscounts)
       );
 
       const cgstPercent = hasValue(data.cgstPercent) ? Number(data.cgstPercent || 0) : (isInterState ? 0 : 1.5);

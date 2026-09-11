@@ -105,54 +105,106 @@ export const createPurchase = async (data, storeId) => {
     throw purchaseError("Please add at least one purchase item.");
   }
 
-  const purchaseItems = data.items.map((item) => ({
-    itemId: item.itemId ? Number(item.itemId) : null,
-    productId: item.productId ? Number(item.productId) : null,
-    metalId: item.metalId ? Number(item.metalId) : null,
-    purityId: item.purityId ? Number(item.purityId) : null,
-    gradeId: item.gradeId ? Number(item.gradeId) : null,
-    stoneId: item.stoneId ? Number(item.stoneId) : null,
+  let totalItemGross = 0;
+  const purchaseItems = data.items.map((item, idx) => {
+    const grossWeight = Number(item.grossWeight || 0);
+    const stoneWeight = Number(item.stoneWeight || 0);
+    const netWeight = Number(item.netWeight || 0);
+    const rate = Number(item.rate || 0);
+    const itmDisc = Number(item.discount || 0);
+    const itmTotal = Number(item.totalAmount || 0);
 
-    pieces: item.pieces ? Number(item.pieces) : null,
+    if (grossWeight <= 0) {
+      throw purchaseError(`Item #${idx + 1}: Gross weight must be greater than 0.`);
+    }
+    if (stoneWeight > grossWeight) {
+      throw purchaseError(`Item #${idx + 1}: Stone weight cannot exceed gross weight.`);
+    }
+    if (rate <= 0) {
+      throw purchaseError(`Item #${idx + 1}: Rate must be greater than 0.`);
+    }
 
-    grossWeight: Number(item.grossWeight || 0),
-    stoneWeight: Number(item.stoneWeight || 0),
-    netWeight: Number(item.netWeight || 0),
+    totalItemGross += itmTotal;
 
-    dustWeight: Number(item.dustWeight || 0),
-    deductionWeight: Number(item.deductionWeight || 0),
-    pureWeight: Number(item.pureWeight || 0),
-    actualWeight: Number(item.actualWeight || 0),
-    balanceWeight: Number(item.balanceWeight || 0),
+    return {
+      itemId: item.itemId ? Number(item.itemId) : null,
+      productId: item.productId ? Number(item.productId) : null,
+      metalId: item.metalId ? Number(item.metalId) : null,
+      purityId: item.purityId ? Number(item.purityId) : null,
+      gradeId: item.gradeId ? Number(item.gradeId) : null,
+      stoneId: item.stoneId ? Number(item.stoneId) : null,
 
-    purity:
-      item.purity !== undefined && item.purity !== null && item.purity !== ""
-        ? Number(item.purity)
-        : null,
-    touchPercentage: item.touchPercentage ? Number(item.touchPercentage) : null,
-    fineness: item.fineness ? Number(item.fineness) : null,
+      pieces: item.pieces ? Number(item.pieces) : null,
 
-    rate: Number(item.rate || 0),
+      grossWeight,
+      stoneWeight,
+      netWeight,
 
-    makingCharges: Number(item.makingCharges || 0),
-    wastagePercentage: Number(item.wastagePercentage || 0),
-    hallmarkCharges: Number(item.hallmarkCharges || 0),
+      dustWeight: Number(item.dustWeight || 0),
+      deductionWeight: Number(item.deductionWeight || 0),
+      pureWeight: Number(item.pureWeight || 0),
+      actualWeight: Number(item.actualWeight || 0),
+      balanceWeight: Number(item.balanceWeight || 0),
 
-    metalAmount: Number(item.metalAmount || 0),
-    stoneAmount: Number(item.stoneAmount || 0),
-    otherAmount: Number(item.otherAmount || 0),
-    discount: Number(item.discount || 0),
-    totalAmount: Number(item.totalAmount || 0),
+      purity:
+        item.purity !== undefined && item.purity !== null && item.purity !== ""
+          ? Number(item.purity)
+          : null,
+      touchPercentage: item.touchPercentage ? Number(item.touchPercentage) : null,
+      fineness: item.fineness ? Number(item.fineness) : null,
 
-    huidNo: item.huidNo || null,
-    hsnCode: item.hsnCode || "711319",
-    barSerialNo: item.barSerialNo || null,
-    assayCertNo: item.assayCertNo || null,
-    vatType: item.vatType || null,
-    narration: item.narration || null,
-    itemPhoto: item.itemPhoto || null,
-    extraDetails: item.extraDetails || null
-  }));
+      rate,
+
+      makingCharges: Number(item.makingCharges || 0),
+      wastagePercentage: Number(item.wastagePercentage || 0),
+      hallmarkCharges: Number(item.hallmarkCharges || 0),
+
+      metalAmount: Number(item.metalAmount || 0),
+      stoneAmount: Number(item.stoneAmount || 0),
+      otherAmount: Number(item.otherAmount || 0),
+      discount: itmDisc,
+      totalAmount: itmTotal,
+
+      huidNo: item.huidNo || null,
+      hsnCode: item.hsnCode || "711319",
+      barSerialNo: item.barSerialNo || null,
+      assayCertNo: item.assayCertNo || null,
+      vatType: item.vatType || null,
+      narration: item.narration || null,
+      itemPhoto: item.itemPhoto || null,
+      extraDetails: item.extraDetails || null
+    };
+  });
+
+  const invoiceDiscount = Number(data.discount || 0);
+  const grossInvoiceAmount = Number(data.grossAmount || data.subtotal || totalItemGross || 0);
+  if (invoiceDiscount > grossInvoiceAmount && grossInvoiceAmount > 0) {
+    throw purchaseError(
+      `Purchase discount (₹${invoiceDiscount.toFixed(2)}) cannot exceed gross invoice amount (₹${grossInvoiceAmount.toFixed(2)}).`
+    );
+  }
+
+  // Customer phone / ID validations
+  if (data.customerPhone?.trim()) {
+    const cleanPhone = data.customerPhone.trim().replace(/\D/g, "");
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      throw purchaseError("Please provide a valid 10-digit mobile number starting with 6-9.");
+    }
+  }
+
+  if (data.customerIdType === "AADHAR" && data.customerIdNumber?.trim()) {
+    const cleanAadhaar = data.customerIdNumber.trim().replace(/\D/g, "");
+    if (!/^\d{12}$/.test(cleanAadhaar)) {
+      throw purchaseError("Aadhaar number must be exactly 12 digits.");
+    }
+  }
+
+  if (data.customerIdType === "PAN" && data.customerIdNumber?.trim()) {
+    const cleanPan = data.customerIdNumber.trim().toUpperCase();
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+      throw purchaseError("Customer PAN format is invalid (e.g. ABCDE1234F).");
+    }
+  }
 
   const rawPayments = Array.isArray(data.payments) && data.payments.length > 0
     ? data.payments

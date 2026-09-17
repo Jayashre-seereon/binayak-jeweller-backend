@@ -224,9 +224,13 @@ export const generatePurchasePdf = async (id, storeId, res) => {
     // Particulars
     doc.font("Helvetica-Bold").fontSize(7.5).fillColor(COLORS.black).text(prodName, rx + 4, y + 5, { width: columns[1].width - 8, align: "left" });
     const huidStr = item.huidNo || "";
+    const designName = item.item?.design?.name || item.design?.name;
     let codeHuidText = itemCodeStr;
+    if (designName) {
+      codeHuidText = codeHuidText ? `${codeHuidText} | Design: ${designName}` : `Design: ${designName}`;
+    }
     if (huidStr) {
-      codeHuidText = itemCodeStr ? `${itemCodeStr} | HUID: ${huidStr}` : `HUID: ${huidStr}`;
+      codeHuidText = codeHuidText ? `${codeHuidText} | HUID: ${huidStr}` : `HUID: ${huidStr}`;
     }
     if (codeHuidText) {
       doc.font("Helvetica").fontSize(6.5).fillColor(COLORS.muted).text(codeHuidText, rx + 4, y + 14, { width: columns[1].width - 8, align: "left" });

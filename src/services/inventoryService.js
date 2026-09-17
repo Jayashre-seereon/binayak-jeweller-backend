@@ -215,8 +215,29 @@ export const createInventoryService = async (
         data,
         include: {
           purchase: true,
-          purchaseItem: true,
-          item: true,
+          purchaseItem: {
+            include: {
+              stones: {
+                include: {
+                  stone: true,
+                },
+              },
+            },
+          },
+          item: {
+            include: {
+              design: {
+                include: {
+                  designStones: {
+                    include: {
+                      stone: true,
+                    },
+                  },
+                },
+              },
+              product: true,
+            },
+          },
           product: true,
           metal: true,
           purityMaster: true,

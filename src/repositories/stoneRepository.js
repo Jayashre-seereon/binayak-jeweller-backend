@@ -9,29 +9,8 @@ export const createStoneRepo = (data) => {
 export const getStonesByStore = (storeId) => {
   return prisma.stone.findMany({
     where: { storeId },
-    include: {
-      product: true,
-      item: true,
-    },
     orderBy: {
       createdAt: "desc",
-    },
-  });
-};
-
-export const getStonesByProductIdAndItemIdRepo = (productId, itemId, storeId) => {
-  return prisma.stone.findMany({
-    where: {
-      productId,
-      itemId,
-      storeId,
-    },
-    include: {
-      product: true,
-      item: true,
-    },
-    orderBy: {
-      id: "asc",
     },
   });
 };
@@ -39,10 +18,6 @@ export const getStonesByProductIdAndItemIdRepo = (productId, itemId, storeId) =>
 export const getStoneByIdRepo = (id) => {
   return prisma.stone.findUnique({
     where: { id },
-    include: {
-      product: true,
-      item: true,
-    },
   });
 };
 
@@ -58,3 +33,4 @@ export const deleteStoneRepo = (id) => {
     where: { id },
   });
 };
+

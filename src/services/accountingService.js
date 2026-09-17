@@ -392,8 +392,16 @@ export const createReceiptVoucherService = async (data, storeId, user = null) =>
         include: { entries: true },
       });
     } else if (referenceType === "ADVANCE") {
-      const customerName = (data.receivedFrom || data.customerName || "Customer").trim();
-      const customerPhone = data.partyPhone ? String(data.partyPhone).trim().replace(/\D/g, "") : null;
+      const customerName = (data.receivedFrom || data.customerName || "").trim();
+      if (!customerName) {
+        throw new Error("Customer name is required for Advance Receipt.");
+      }
+
+      const rawPhone = data.partyPhone ? String(data.partyPhone).trim().replace(/\D/g, "") : "";
+      if (rawPhone && !/^[6-9]\d{9}$/.test(rawPhone)) {
+        throw new Error("Please provide a valid 10-digit mobile number starting with 6-9 for the customer advance.");
+      }
+      const customerPhone = rawPhone || null;
 
       let customerId = data.customerId ? Number(data.customerId) : null;
       if (!customerId && customerPhone) {

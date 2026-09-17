@@ -1,4 +1,5 @@
 import * as stoneService from "../services/stoneService.js";
+import prisma from "../config/db.js";
 
 export const createStone = async (req, res) => {
   try {
@@ -39,11 +40,28 @@ export const getStones = async (req, res) => {
 
 export const getStonesByProductIdAndItemId = async (req, res) => {
   try {
-    const stones = await stoneService.getStonesByProductIdAndItemId(
-      Number(req.params.productId),
-      Number(req.params.itemId),
-      Number(req.query.storeId)
-    );
+    const item = await prisma.item.findUnique({
+      where: { id: Number(req.params.itemId) },
+      include: {
+        design: {
+          include: {
+            designStones: {
+              include: { stone: true },
+            },
+          },
+        },
+      },
+    });
+
+    const stones = (item?.design?.designStones || []).map((ds) => ({
+      id: ds.stoneId,
+      designStoneId: ds.id,
+      name: ds.stone?.name,
+      pieces: ds.pieces,
+      expectedWeight: ds.expectedWeight,
+      unit: ds.unit,
+      stone: ds.stone,
+    }));
 
     res.json({
       success: true,

@@ -156,9 +156,14 @@ model Design {
   name        String
   description String?
   image       String?
+
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id])
+
   storeId     Int
   store       Store    @relation(fields: [storeId], references: [id])
   items       Item[]
+  designStones DesignStone[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -184,9 +189,9 @@ model Product {
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])
 
+  designs       Design[]
   items         Item[]
   purchaseItems PurchaseItem[]
-  stones        Stone[]
   inventory     Inventory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -210,7 +215,6 @@ model Item {
   storeId Int
   store   Store @relation(fields: [storeId], references: [id])
 
-  stones        Stone[]
   purchaseItems PurchaseItem[]
   inventory     Inventory[]
   createdAt     DateTime       @default(now())
@@ -218,22 +222,44 @@ model Item {
 }
 
 model Stone {
-  id          Int     @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
+  stoneType   String?
+  shape       String?
+  color       String?
+  clarity     String?
+  size        String?
+  unit        String?  @default("PCS")
   description String?
+  status      String   @default("ACTIVE")
 
-  productId Int
-  product   Product @relation(fields: [productId], references: [id])
+  storeId     Int
+  store       Store    @relation(fields: [storeId], references: [id])
 
-  itemId Int
-  item   Item @relation(fields: [itemId], references: [id])
+  designStones       DesignStone[]
+  purchaseItemStones PurchaseItemStone[]
 
-  storeId       Int
-  store         Store          @relation(fields: [storeId], references: [id])
   purchaseItems PurchaseItem[]
   inventory     Inventory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+}
+
+model DesignStone {
+  id             Int      @id @default(autoincrement())
+  designId       Int
+  design         Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+  stoneId        Int
+  stone          Stone    @relation(fields: [stoneId], references: [id])
+  pieces         Int      @default(1)
+  expectedWeight Float    @default(0)
+  unit           String?  @default("ct")
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([designId])
+  @@index([stoneId])
 }
 
 model Employee {
@@ -481,9 +507,32 @@ model PurchaseItem {
   purityMaster Purity?     @relation(fields: [purityId], references: [id])
   grade        Grade?      @relation(fields: [gradeId], references: [id])
   stone        Stone?      @relation(fields: [stoneId], references: [id])
+  stones       PurchaseItemStone[]
   inventory    Inventory[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+}
+
+model PurchaseItemStone {
+  id             Int          @id @default(autoincrement())
+  purchaseItemId Int
+  purchaseItem   PurchaseItem @relation(fields: [purchaseItemId], references: [id], onDelete: Cascade)
+  stoneId        Int?
+  stone          Stone?       @relation(fields: [stoneId], references: [id])
+  stoneName      String?
+  expectedPieces Int?         @default(0)
+  expectedWeight Float?       @default(0)
+  actualPieces   Int?         @default(0)
+  actualWeight   Float?       @default(0)
+  rate           Float?       @default(0)
+  amount         Float?       @default(0)
+  unit           String?      @default("ct")
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([purchaseItemId])
+  @@index([stoneId])
 }
 
 enum InventoryStatus {

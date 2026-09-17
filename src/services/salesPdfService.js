@@ -259,9 +259,13 @@ export const generateSalePdf = async (id, storeId, res) => {
     rx += columns[0].width;
 
     const huidStr = item.huidNo || inv?.huidNo || "";
+    const designName = item.designName || inv?.item?.design?.name || inv?.design?.name;
     let codeHuidText = itemCodeStr;
+    if (designName) {
+      codeHuidText = codeHuidText ? `${codeHuidText} | Design: ${designName}` : `Design: ${designName}`;
+    }
     if (huidStr) {
-      codeHuidText = itemCodeStr ? `${itemCodeStr} | HUID: ${huidStr}` : `HUID: ${huidStr}`;
+      codeHuidText = codeHuidText ? `${codeHuidText} | HUID: ${huidStr}` : `HUID: ${huidStr}`;
     }
 
     if (codeHuidText) {

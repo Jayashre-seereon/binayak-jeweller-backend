@@ -11,7 +11,15 @@ const purchaseItemInclude = {
           grade: true,
         },
       },
-      design: true,
+      design: {
+        include: {
+          designStones: {
+            include: {
+              stone: true,
+            },
+          },
+        },
+      },
     },
   },
   product: {
@@ -26,6 +34,11 @@ const purchaseItemInclude = {
   purityMaster: true,
   grade: true,
   stone: true,
+  stones: {
+    include: {
+      stone: true,
+    },
+  },
 };
 
 export const createPurchaseRepo = async (data) => {

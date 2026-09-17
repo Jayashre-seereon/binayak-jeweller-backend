@@ -172,7 +172,24 @@ export const createPurchase = async (data, storeId) => {
       vatType: item.vatType || null,
       narration: item.narration || null,
       itemPhoto: item.itemPhoto || null,
-      extraDetails: item.extraDetails || null
+      extraDetails: item.extraDetails || null,
+      ...(Array.isArray(item.stones) && item.stones.length > 0
+        ? {
+            stones: {
+              create: item.stones.map((st) => ({
+                stoneId: st.stoneId ? Number(st.stoneId) : (st.id ? Number(st.id) : null),
+                stoneName: st.stoneName || st.name || (st.stone?.name ?? null),
+                expectedPieces: st.expectedPieces !== undefined ? Number(st.expectedPieces) : Number(st.pieces || 0),
+                expectedWeight: st.expectedWeight !== undefined ? Number(st.expectedWeight) : 0,
+                actualPieces: st.actualPieces !== undefined ? Number(st.actualPieces) : Number(st.pieces || 0),
+                actualWeight: st.actualWeight !== undefined ? Number(st.actualWeight) : Number(st.weight || 0),
+                rate: Number(st.rate || 0),
+                amount: Number(st.amount || 0),
+                unit: st.unit || "ct",
+              })),
+            },
+          }
+        : {}),
     };
   });
 
@@ -664,7 +681,24 @@ export const updatePurchase = async (id, data, storeId) => {
       vatType: item.vatType || null,
       narration: item.narration || null,
       itemPhoto: item.itemPhoto || null,
-      extraDetails: item.extraDetails || null
+      extraDetails: item.extraDetails || null,
+      ...(Array.isArray(item.stones) && item.stones.length > 0
+        ? {
+            stones: {
+              create: item.stones.map((st) => ({
+                stoneId: st.stoneId ? Number(st.stoneId) : (st.id ? Number(st.id) : null),
+                stoneName: st.stoneName || st.name || (st.stone?.name ?? null),
+                expectedPieces: st.expectedPieces !== undefined ? Number(st.expectedPieces) : Number(st.pieces || 0),
+                expectedWeight: st.expectedWeight !== undefined ? Number(st.expectedWeight) : 0,
+                actualPieces: st.actualPieces !== undefined ? Number(st.actualPieces) : Number(st.pieces || 0),
+                actualWeight: st.actualWeight !== undefined ? Number(st.actualWeight) : Number(st.weight || 0),
+                rate: Number(st.rate || 0),
+                amount: Number(st.amount || 0),
+                unit: st.unit || "ct",
+              })),
+            },
+          }
+        : {}),
     }));
 
     updateData.items = {

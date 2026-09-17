@@ -12,7 +12,15 @@ export const createItemRepo = (data) => {
           grade: true,
         },
       },
-      design: true,
+      design: {
+        include: {
+          designStones: {
+            include: {
+              stone: true,
+            },
+          },
+        },
+      },
       purity: true,
       store: true,
     },
@@ -33,7 +41,15 @@ export const getItemsByStore = (storeId) => {
           grade: true,
         },
       },
-      design: true,
+      design: {
+        include: {
+          designStones: {
+            include: {
+              stone: true,
+            },
+          },
+        },
+      },
       purity: true,
       store: true,
     },
@@ -58,7 +74,15 @@ export const getItemsByProductIdRepo = (productId, storeId) => {
           grade: true,
         },
       },
-      design: true,
+      design: {
+        include: {
+          designStones: {
+            include: {
+              stone: true,
+            },
+          },
+        },
+      },
       purity: true,
       store: true,
     },
@@ -82,7 +106,15 @@ export const getItemByIdRepo = (id) => {
           grade: true,
         },
       },
-      design: true,
+      design: {
+        include: {
+          designStones: {
+            include: {
+              stone: true,
+            },
+          },
+        },
+      },
       purity: true,
       store: true,
     },
@@ -104,7 +136,15 @@ export const updateItemRepo = (id, data) => {
           grade: true,
         },
       },
-      design: true,
+      design: {
+        include: {
+          designStones: {
+            include: {
+              stone: true,
+            },
+          },
+        },
+      },
       purity: true,
       store: true,
     },

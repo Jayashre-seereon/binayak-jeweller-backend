@@ -273,6 +273,10 @@ export const createSaleService = async (data, storeId, user = null) => {
 
         const stoneAmount = roundMoney(Number(item.stoneAmount || 0));
         const hallmarkCharges = roundMoney(Number(item.hallmarkCharges || 0));
+        const otherCharges = roundMoney(
+          Number(item.otherCharges ?? item.otherAmount ?? 0)
+        );
+        const itemDiscount = roundMoney(Number(item.discount || 0));
         if (grossWeight <= 0) {
           throw saleError(`Item #${index + 1} (${inventory.item?.name || inventory.product?.name}): Gross weight must be greater than 0.`);
         }

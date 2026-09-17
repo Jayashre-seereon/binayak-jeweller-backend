@@ -1,18 +1,41 @@
 import prisma from "../config/db.js";
 
+const inventoryInclude = {
+  purchase: true,
+  purchaseItem: {
+    include: {
+      stones: {
+        include: {
+          stone: true,
+        },
+      },
+    },
+  },
+  item: {
+    include: {
+      design: {
+        include: {
+          designStones: {
+            include: {
+              stone: true,
+            },
+          },
+        },
+      },
+      product: true,
+    },
+  },
+  product: true,
+  metal: true,
+  purityMaster: true,
+  grade: true,
+  stone: true,
+};
+
 export const createInventoryRepo = async (data) => {
   return prisma.inventory.create({
     data,
-    include: {
-      purchase: true,
-      purchaseItem: true,
-      item: true,
-      product: true,
-      metal: true,
-      purityMaster: true,
-      grade: true,
-      stone: true,
-    },
+    include: inventoryInclude,
   });
 };
 
@@ -51,16 +74,7 @@ export const getInventoriesRepo = async (storeId, filters = {}) => {
         ? { barSerialNo: filters.barSerialNo }
         : {}),
     },
-    include: {
-      purchase: true,
-      purchaseItem: true,
-      item: true,
-      product: true,
-      metal: true,
-      purityMaster: true,
-      grade: true,
-      stone: true,
-    },
+    include: inventoryInclude,
     orderBy: {
       createdAt: "desc",
     },
@@ -73,16 +87,7 @@ export const getInventoryByIdRepo = async (id, storeId) => {
       id: Number(id),
       storeId,
     },
-    include: {
-      purchase: true,
-      purchaseItem: true,
-      item: true,
-      product: true,
-      metal: true,
-      purityMaster: true,
-      grade: true,
-      stone: true,
-    },
+    include: inventoryInclude,
   });
 };
 
@@ -92,16 +97,7 @@ export const getInventoryByBarcodeRepo = async (barcodeNo, storeId) => {
       barcodeNo: String(barcodeNo),
       storeId: Number(storeId),
     },
-    include: {
-      purchase: true,
-      purchaseItem: true,
-      item: true,
-      product: true,
-      metal: true,
-      purityMaster: true,
-      grade: true,
-      stone: true,
-    },
+    include: inventoryInclude,
   });
 };
 

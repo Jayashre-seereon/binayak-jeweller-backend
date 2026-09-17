@@ -3,7 +3,6 @@ import prisma from "../config/db.js";
 import {
   createStoneRepo,
   getStonesByStore,
-  getStonesByProductIdAndItemIdRepo,
   getStoneByIdRepo,
   updateStoneRepo,
   deleteStoneRepo,
@@ -11,31 +10,20 @@ import {
 
 // Create
 export const createStone = async (data, storeId) => {
-  const product = await prisma.product.findUnique({
-    where: {
-      id: Number(data.productId),
-    },
-  });
-
-  if (!product) {
-    throw new Error("Product not found");
-  }
-
-  const item = await prisma.item.findUnique({
-    where: {
-      id: Number(data.itemId),
-    },
-  });
-
-  if (!item) {
-    throw new Error("Item not found");
+  if (!data.name || !data.name.trim()) {
+    throw new Error("Stone Name is required");
   }
 
   return await createStoneRepo({
-    name: data.name,
-    description: data.description,
-    productId: Number(data.productId),
-    itemId: Number(data.itemId),
+    name: data.name.trim(),
+    stoneType: data.stoneType?.trim() || null,
+    shape: data.shape?.trim() || null,
+    color: data.color?.trim() || null,
+    clarity: data.clarity?.trim() || null,
+    size: data.size?.trim() || null,
+    unit: data.unit?.trim() || "PCS",
+    description: data.description?.trim() || null,
+    status: data.status || "ACTIVE",
     storeId: Number(storeId),
   });
 };
@@ -43,18 +31,6 @@ export const createStone = async (data, storeId) => {
 // Get All
 export const getStones = async (storeId) => {
   return await getStonesByStore(Number(storeId));
-};
-
-// Get By Product Id And Item Id
-export const getStonesByProductIdAndItemId = async (productId, itemId, storeId) => {
-  if (!productId) throw new Error("Product ID is required");
-  if (!itemId) throw new Error("Item ID is required");
-
-  return await getStonesByProductIdAndItemIdRepo(
-    Number(productId),
-    Number(itemId),
-    Number(storeId)
-  );
 };
 
 // Get By Id
@@ -78,38 +54,18 @@ export const updateStone = async (id, data, storeId) => {
   if (stone.storeId !== Number(storeId))
     throw new Error("Unauthorized");
 
-  if (data.productId) {
-    const product = await prisma.product.findUnique({
-      where: {
-        id: Number(data.productId),
-      },
-    });
+  const updateData = {};
+  if (data.name !== undefined) updateData.name = data.name.trim();
+  if (data.stoneType !== undefined) updateData.stoneType = data.stoneType?.trim() || null;
+  if (data.shape !== undefined) updateData.shape = data.shape?.trim() || null;
+  if (data.color !== undefined) updateData.color = data.color?.trim() || null;
+  if (data.clarity !== undefined) updateData.clarity = data.clarity?.trim() || null;
+  if (data.size !== undefined) updateData.size = data.size?.trim() || null;
+  if (data.unit !== undefined) updateData.unit = data.unit?.trim() || "PCS";
+  if (data.description !== undefined) updateData.description = data.description?.trim() || null;
+  if (data.status !== undefined) updateData.status = data.status || "ACTIVE";
 
-    if (!product) throw new Error("Product not found");
-  }
-
-  if (data.itemId) {
-    const item = await prisma.item.findUnique({
-      where: {
-        id: Number(data.itemId),
-      },
-    });
-
-    if (!item) throw new Error("Item not found");
-  }
-
-  return await updateStoneRepo(Number(id), {
-    ...(data.name && { name: data.name }),
-    ...(data.description !== undefined && {
-      description: data.description,
-    }),
-    ...(data.productId && {
-      productId: Number(data.productId),
-    }),
-    ...(data.itemId && {
-      itemId: Number(data.itemId),
-    }),
-  });
+  return await updateStoneRepo(Number(id), updateData);
 };
 
 // Delete
@@ -121,9 +77,6 @@ export const deleteStone = async (id, storeId) => {
   if (stone.storeId !== Number(storeId))
     throw new Error("Unauthorized");
 
-  try {
-    return await deleteStoneRepo(Number(id));
-  } catch (error) {
-    throw new Error(handleDeleteError(error, "stone"));
-  }
+  return await deleteStoneRepo(Number(id));
 };
+

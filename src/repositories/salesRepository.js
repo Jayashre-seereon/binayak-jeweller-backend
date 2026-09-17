@@ -10,7 +10,29 @@ const saleInclude = {
     include: {
       inventory: {
         include: {
-          item: true,
+          item: {
+            include: {
+              design: {
+                include: {
+                  designStones: {
+                    include: {
+                      stone: true,
+                    },
+                  },
+                },
+              },
+              product: true,
+            },
+          },
+          purchaseItem: {
+            include: {
+              stones: {
+                include: {
+                  stone: true,
+                },
+              },
+            },
+          },
           product: true,
           metal: true,
           purityMaster: true,
